@@ -1,0 +1,11 @@
+{
+  "id": "example-status",
+  "name": "Beispiel: Statusintegration",
+  "version": "0.1.0",
+  "description": "Demonstriert das vorbereitete Plugin-Manifest. Es wird noch kein Fremdcode ausgefuehrt.",
+  "api_version": 1,
+  "permissions": [],
+  "author": "Mohammad Zamir Akbari",
+  "author_url": "https://zamir.akbari.org",
+  "copyright": "Copyright (c) 2026 Mohammad Zamir Akbari"
+}

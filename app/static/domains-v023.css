@@ -1,0 +1,49 @@
+/* ProxyCircuit v0.2.3 Beta | Author: Mohammad Zamir Akbari | https://zamir.akbari.org | Copyright (c) 2026 Mohammad Zamir Akbari. */
+.category-tabs{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:10px 0 20px}
+.category-tab{border:1px solid #2e435a;background:#122139;color:#a9c0d5;border-radius:11px;padding:9px 12px;display:flex;align-items:center;gap:9px;min-height:39px;font-size:12px;font-weight:750;transition:background .16s,border-color .16s,color .16s}
+.category-tab:hover{border-color:#437583;color:#effaff;background:#1b3446}
+.category-tab.active{background:linear-gradient(105deg,#1c5056,#174455);border-color:#3cc5b0;color:#e4fff8;box-shadow:inset 0 0 0 1px #3cc5b02b}
+.category-tab .category-count{border-radius:6px;padding:2px 7px;background:#ffffff13;color:#a7bccc;font-size:10px;min-width:22px;text-align:center}
+.category-tab.active .category-count{color:#6debd1;background:#051b204d}
+.category-tab:focus-visible,.layout-switch button:focus-visible,.domain-tile button:focus-visible{outline:2px solid #3ce5c0;outline-offset:3px}
+.host-layout-bar{display:flex;align-items:center;justify-content:space-between;gap:18px;margin:16px 0 15px}
+.host-layout-bar h2{margin:0 0 4px;font-size:16px}.host-layout-bar p{margin:0;font-size:12px}
+.layout-switch{display:flex;align-items:center;padding:4px;border:1px solid #2e435a;background:#101d30;border-radius:11px;flex-shrink:0}
+.layout-switch button{border:0;border-radius:7px;background:transparent;color:#95adc4;padding:9px 14px;font-size:12px;font-weight:700}
+.layout-switch button.active{background:#1d4250;color:#5de9ce}
+.host-tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,265px),1fr));gap:12px;margin-bottom:18px}
+.domain-tile{min-width:0;background:linear-gradient(165deg,#16283e,#121e31);border:1px solid #2a405a;border-radius:13px;padding:16px;display:flex;flex-direction:column;gap:12px;transition:background .15s,border-color .15s}
+.domain-tile:hover{border-color:#417d80;background:#182d40}.domain-tile.is-disabled{opacity:.73}
+.domain-tile-top{display:flex;align-items:start;justify-content:space-between;gap:9px}
+.domain-tile-name{font-size:13px;font-weight:800;line-height:1.45;overflow-wrap:anywhere;color:#e8f4ff}
+.domain-tile-category{display:block;margin-top:5px;color:#8ba4ba;font-size:10px;font-weight:600}
+.domain-tile-check{accent-color:#3ddfc0;width:18px;height:18px;flex-shrink:0;cursor:pointer;margin:2px}
+.domain-tile-address{color:#8ba4be;overflow-wrap:anywhere;font-family:ui-monospace,Consolas,monospace;font-size:11px;line-height:1.65;min-height:32px}
+.domain-tile-footer{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+.domain-tile-footer .status{font-size:10px;padding:5px 8px}
+.domain-tile-actions{display:flex;gap:7px;flex-wrap:wrap;padding-top:9px;border-top:1px solid #2b3e51;margin-top:auto}
+.domain-tile-actions button{font-size:11px;padding:7px 10px;border:1px solid #324b62;color:#bfd7e8;border-radius:7px;background:#1a2d42;cursor:pointer}
+.domain-tile-actions button:hover{color:#6ce5d1;border-color:#438887}
+.domain-tile-actions .delete{margin-left:auto;color:#f7a2b3}
+.domain-tiles-empty{border:1px dashed #33566c;border-radius:13px;padding:38px 20px;text-align:center;color:#91aec6;grid-column:1/-1}
+.health-controls{display:flex;align-items:center;justify-content:space-between;gap:15px;margin-bottom:12px}
+.health-controls label{max-width:335px;width:100%;margin:0}.health-controls #healthCounter{font-size:11px;color:#8ba5be;white-space:nowrap}
+.health-grid-compact{grid-template-columns:repeat(auto-fill,minmax(min(100%,245px),1fr));gap:11px}
+.health-tile{border-radius:11px;border:1px solid #2c4157;background:#142339;padding:14px 15px;min-height:110px;display:flex;flex-direction:column;gap:8px}
+.health-tile:hover{border-color:#426979}
+.health-tile-name{display:flex;align-items:center;gap:8px;min-width:0}.health-tile-name strong{font-size:12px;line-height:1.4;color:#e5f4ff;min-width:0;overflow-wrap:anywhere}
+.health-tile-name .signal{height:7px;width:7px;border-radius:50%;flex-shrink:0;background:#6d819e}
+.health-tile.online .signal{background:#4cddb6;box-shadow:0 0 10px #36caa456}
+.health-tile.offline .signal{background:#fa8197;box-shadow:0 0 10px #d45a7350}
+.health-tile.pending .signal{background:#f1bd74;box-shadow:0 0 10px #f1bd7440}
+.health-tile .status{align-self:flex-start;font-size:10px;max-width:100%;white-space:normal;overflow-wrap:anywhere}
+.health-tile small{color:#8ea5be;font-size:10px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.default-editor-layout{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(320px,1fr);gap:18px}
+.default-editor-panel,.default-preview-panel{min-width:0}.default-editor-panel label{font-size:12px;margin-bottom:9px}
+#defaultHtmlEditor{width:100%;min-height:480px;resize:vertical;background:#0b1829;border:1px solid #35516a;border-radius:10px;color:#d5ebff;padding:18px;font:12px/1.7 ui-monospace,Consolas,monospace;tab-size:2}
+#defaultHtmlEditor:focus{outline:2px solid #24c9b0;outline-offset:1px}
+.default-editor-actions{display:flex;flex-wrap:wrap;gap:9px;margin-top:14px}.default-editor-actions .btn{font-size:11px}
+#defaultHtmlPreview{display:block;width:100%;min-height:540px;border:1px solid #38526c;border-radius:11px;background:#091422}
+#defaultPageState{line-height:1.7}
+@media(max-width:1120px){.default-editor-layout{grid-template-columns:1fr}#defaultHtmlPreview{min-height:470px}}
+@media(max-width:720px){.host-layout-bar{flex-direction:column;align-items:flex-start}.health-controls{flex-direction:column;align-items:stretch}.health-controls label{max-width:none}.health-grid-compact{grid-template-columns:repeat(auto-fill,minmax(min(100%,220px),1fr))}.category-tabs{flex-wrap:nowrap;overflow-x:auto;padding-bottom:7px;scrollbar-width:thin}.category-tab{flex-shrink:0}.default-editor-panel,.default-preview-panel{padding:16px}#defaultHtmlEditor{min-height:330px}}

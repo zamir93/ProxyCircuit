@@ -1,0 +1,34 @@
+/* ProxyCircuit v0.2.0 Beta | Author: Mohammad Zamir Akbari | https://zamir.akbari.org | Copyright (c) 2026 Mohammad Zamir Akbari. */
+/* Clear grouping, advanced filtering and keyboard-accessible multi-selection. */
+.domain-toolbar{padding:20px 22px 12px}
+.domain-filter-row{display:grid;grid-template-columns:minmax(190px,2.2fr) minmax(140px,1fr) minmax(160px,1.2fr) auto;gap:15px;align-items:end}
+.domain-filter-row label{margin:0;color:#a9bed2;font-size:11px}
+.domain-filter-row input,.domain-filter-row select{min-width:0;max-width:100%}
+.domain-filter-row .group-toggle{margin:0 0 12px;max-width:180px;line-height:1.5;color:#cee6ef}
+.domain-filter-row input[type=checkbox]{width:auto}
+.bulk-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;border-top:1px solid var(--line);margin-top:16px;padding-top:15px}
+.bulk-actions .btn{min-height:34px;padding:7px 11px;font-size:11px}
+.bulk-actions span{color:#98acc6;font-size:12px;font-weight:700;margin-right:9px}
+.bulk-actions .checkbox-line{margin:0 0 0 auto;font-size:11px;max-width:275px;line-height:1.5;color:#a7bad0}
+.bulk-actions input[type=checkbox],.table-wrap input[type=checkbox]{accent-color:var(--accent);width:17px;height:17px;cursor:pointer}
+.domain-counter{padding-top:12px;color:#7088a6;font-size:11px}
+.domain-group-header td{background:#122a3d!important;border-top:1px solid #326273!important;border-bottom:1px solid #29465b!important;padding:8px 18px}
+.domain-group-header button{width:100%;text-align:left;border:0;background:transparent;color:#bfece3;display:flex;align-items:center;gap:13px;font-size:13px;padding:6px 0}
+.domain-group-header button strong{color:#5de2c7;font-size:14px}
+.domain-group-header button small{font-size:11px;color:#94b1c6}
+.domain-group-header button:hover strong{text-decoration:underline}
+.domain-cell{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.domain-cell strong{overflow-wrap:anywhere}
+.domain-tag{border:1px solid #344458;border-radius:7px;padding:2px 7px;font-size:10px;color:#a5b8cc;white-space:nowrap}
+.domain-tag.primary-domain{color:#55dcbf;border-color:#398c7d;background:#163c3e}
+.host-row:hover td{background:#172739}
+.row-actions{min-width:235px;line-height:2.7}
+.table-wrap table td:first-child,.table-wrap table th:first-child{padding-left:20px}
+.role-pill{border:1px solid #366c67;background:#183638;padding:7px 11px;border-radius:9px;color:#73ddcb;font-size:11px;font-weight:800}
+.user-role-select{min-width:145px;max-width:220px;font-size:12px}
+#view-users form{max-width:480px}
+#view-users p strong{color:#dfebfa}
+#view-users td{min-width:150px}
+#passwordResetOverlay .modal{max-width:470px}
+@media(max-width:1220px){.domain-filter-row{grid-template-columns:1fr 1fr}.domain-filter-row .group-toggle{max-width:none}}
+@media(max-width:720px){.domain-filter-row{grid-template-columns:1fr}.bulk-actions .checkbox-line{margin:8px 0 0;max-width:none}.row-actions{min-width:200px}}

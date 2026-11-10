@@ -1,0 +1,227 @@
+<!doctype html>
+<!-- ProxyCircuit v0.2.3 Beta | Author: Mohammad Zamir Akbari | https://zamir.akbari.org | Copyright (c) 2026 Mohammad Zamir Akbari. -->
+<html lang="de">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#0c1424">
+  <meta name="author" content="Mohammad Zamir Akbari">
+  <title>ProxyCircuit | Reverse Proxy &amp; Network Management</title>
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="stylesheet" href="/static/style.css?v=0.2.3">
+  <link rel="stylesheet" href="/static/features.css?v=0.2.3">
+  <script defer src="/static/app.js?v=0.2.3"></script>
+  <script defer src="/static/features.js?v=0.2.3"></script>
+  <link rel="stylesheet" href="/static/utilities.css?v=0.2.3">
+  <script defer src="/static/utilities.js?v=0.2.3"></script>
+  <link rel="stylesheet" href="/static/domains-v023.css?v=0.2.3">
+  <script defer src="/static/domains-v023.js?v=0.2.3"></script>
+</head>
+<body>
+  <div class="login-screen" id="loginScreen">
+    <div class="login-glow"></div>
+    <form id="loginForm" class="login-card">
+      <div class="logo large">⟠</div>
+      <div class="eyebrow">SELF-HOSTED CONTROL CENTER</div>
+      <h1>Proxy<span>Circuit</span></h1>
+      <p class="muted">Zentrale Steuerung für sichere Domains, Dienste und Ports.</p>
+      <label>Benutzername<input type="text" name="username" value="admin" autocomplete="username" maxlength="80" required></label>
+      <label>Passwort<input type="password" name="password" autocomplete="current-password" required></label>
+      <button class="btn primary full" type="submit">Sicher anmelden <span>→</span></button>
+      <div id="loginError" class="form-error" aria-live="polite"></div>
+      <div class="login-hint">Verbindung über HTTPS · Port 9443 · Keine Standardzugangsdaten</div>
+      <div class="brand-credits">© 2026 Mohammad Zamir Akbari · <a href="https://zamir.akbari.org" target="_blank" rel="noopener noreferrer">zamir.akbari.org</a></div>
+    </form>
+  </div>
+  <div id="shell" class="shell hidden">
+    <aside class="sidebar">
+      <div class="brand"><div class="logo">⟠</div><div><strong>ProxyCircuit</strong><small>NETWORK PLATFORM <b>v0.2.3 Beta</b></small></div></div>
+      <div class="side-caption">VERWALTUNG</div>
+      <nav id="navigation">
+        <button data-view="dashboard" class="nav-item active"><span class="nav-icon">◈</span> Übersicht</button>
+        <button data-view="hosts" class="nav-item"><span class="nav-icon">◎</span> Proxy-Domains</button>
+        <button data-view="defaultpage" class="nav-item"><span class="nav-icon">▣</span> Standardseite</button>
+        <button data-view="streams" class="nav-item"><span class="nav-icon">⇄</span> TCP / UDP Ports</button>
+        <button data-view="certificates" class="nav-item"><span class="nav-icon">♢</span> SSL-Zertifikate</button>
+        <button data-view="monitoring" class="nav-item"><span class="nav-icon">⌁</span> Monitoring & Logs</button>
+        <div class="side-caption tools-caption">NETZWERK</div>
+        <button data-view="utilities" class="nav-item"><span class="nav-icon">⌘</span> Netzwerk-Werkzeuge</button>
+        <button data-view="webssh" id="webSshNav" class="nav-item hidden"><span class="nav-icon">▤</span> Web-SSH Terminal</button>
+        <button data-view="plugins" class="nav-item"><span class="nav-icon">◫</span> Plugins</button>
+        <button data-view="users" id="usersNav" class="nav-item hidden"><span class="nav-icon">♙</span> Benutzer & Rechte</button>
+        <button data-view="backups" class="nav-item"><span class="nav-icon">▣</span> Backup & Export</button>
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="server-state"><span class="live-dot"></span><span>Eigenständige Nginx-Instanz</span></div>
+        <button id="logout" class="nav-item"><span class="nav-icon">↩</span> Abmelden</button>
+      </div>
+    </aside>
+    <button class="mobile-backdrop hidden" id="mobileBackdrop" type="button" aria-label="Menü schließen"></button>
+    <main class="main">
+      <header class="topbar">
+        <button id="mobileMenuButton" class="mobile-menu-button" type="button" aria-label="Navigation öffnen" aria-expanded="false">☰</button>
+        <div class="breadcrumb"><span>PROXYCIRCUIT</span><span class="chev">/</span><strong id="crumb">Übersicht</strong></div>
+        <div class="top-actions"><span class="role-pill" id="rolePill"></span><span class="top-mini" id="serverTime"></span><div class="avatar" id="avatar">A</div></div>
+      </header>
+      <div class="content">
+        <section class="view" id="view-dashboard">
+          <div class="hero">
+            <div><div class="eyebrow accent">INFRASTRUKTUR IM BLICK</div><h1>Deine Proxy-Zentrale</h1><p>Domains, Portweiterleitungen und Zertifikate – getrennt vom bisherigen Proxy.</p>
+              <button class="btn primary" id="quickHost">+ Neue Proxy-Domain</button></div>
+            <div class="hero-visual" aria-hidden="true"><div class="orbit o1"></div><div class="orbit o2"></div><span>⟠</span></div>
+          </div>
+          <div class="metrics" id="metricCards">
+            <div class="metric"><span class="skeleton"></span></div><div class="metric"><span class="skeleton"></span></div><div class="metric"><span class="skeleton"></span></div><div class="metric"><span class="skeleton"></span></div>
+          </div>
+          <div class="two-col">
+            <div class="panel"><div class="panel-heading"><div><h2>Systemauslastung</h2><p>Ressourcen des LXC-Containers</p></div><span class="eyebrow">LIVE</span></div><div id="resourceStats"></div></div>
+            <div class="panel"><div class="panel-heading"><div><h2>Letzte Aktivität</h2><p>Konfigurationsänderungen</p></div></div><div id="auditList" class="audit-list"></div></div>
+          </div>
+          <div id="deployBanner" class="status-banner"></div>
+        </section>
+        <section class="view hidden" id="view-hosts">
+          <div class="page-title"><div><div class="eyebrow accent">HTTP & HTTPS</div><h1>Proxy-Domains</h1><p>Domains auf lokale oder externe HTTP-Dienste weiterleiten.</p></div><button class="btn primary" id="addHost">+ Domain hinzufügen</button></div>
+          <div class="domain-toolbar panel">
+              <div class="domain-filter-row">
+                <label>Suche <input id="hostSearch" type="search" placeholder="Domain, IP, Port oder Kategorie …" autocomplete="off"></label>
+                <label>Status <select id="hostStatus"><option value="all">Alle Domains</option><option value="on">Aktiv</option><option value="off">Deaktiviert</option><option value="tls">Mit HTTPS</option><option value="plain">Ohne HTTPS</option></select></label>
+                <label>Kategorie <select id="hostGroup"><option value="all">Alle Hauptdomains</option></select></label>
+                <label class="checkbox-line group-toggle"><input id="hostGroupMode" type="checkbox" checked> Nach Hauptdomains gruppieren</label>
+              </div>
+              <div class="bulk-actions" id="bulkActions">
+                <span id="selectionCount">0 ausgewählt</span>
+                <button id="bulkEnable" class="btn outline" type="button">Aktivieren</button>
+                <button id="bulkDisable" class="btn outline" type="button">Deaktivieren</button>
+                <button id="bulkCategorize" class="btn outline" type="button">Kategorie ändern</button>
+                <button id="bulkDelete" class="btn danger" type="button">Ausgewählte löschen</button>
+                <label class="checkbox-line"><input id="bulkDeleteCerts" type="checkbox"> Nicht mehr verwendete Zertifikate ebenfalls löschen</label>
+              </div>
+              <div class="domain-counter" id="domainCounter"></div>
+            </div>
+          <div class="category-tabs" id="hostCategoryTabs" role="group" aria-label="Domain-Kategorien"></div>
+          <div class="host-layout-bar"><div><h2>Domains im Blick</h2><p>Kategorien ausw&#228;hlen und Domains als Kacheln oder Tabelle ansehen.</p></div><div class="layout-switch" role="group" aria-label="Ansicht wechseln"><button type="button" id="hostViewTiles" class="active" aria-pressed="true">&#9638; Kacheln</button><button type="button" id="hostViewTable" aria-pressed="false">&#9776; Tabelle</button></div></div>
+          <div class="host-tiles" id="hostTileGrid" aria-live="polite"></div>
+          <div class="panel table-panel hidden" id="hostTablePanel"><div class="table-wrap"><table><thead><tr><th><input type="checkbox" id="hostSelectAll" aria-label="Alle gefilterten Domains auswählen"></th><th>DOMAIN / GRUPPE</th><th>ZIELSERVER</th><th>SSL</th><th>STATUS</th><th>AKTIONEN</th></tr></thead><tbody id="hostsRows"></tbody></table></div></div>
+          <p class="footnote">„Eingeschaltet“ bedeutet nur, dass die Regel in ProxyCircuit aktiviert ist. Kein Nachweis für Erreichbarkeit aus dem Internet. <span id="hostDeployState"></span></p>
+        </section>
+        <section class="view hidden" id="view-defaultpage">
+          <div class="page-title"><div><div class="eyebrow accent">SEITEN &amp; FEHLER</div><h1>Standardseite</h1><p>Eigene HTML-Seite f&#252;r unbekannte Domains und vor&#252;bergehend nicht erreichbare Dienste.</p></div><span class="status pending">404 / 502 / 503 / 504</span></div>
+          <div class="info-bar"><strong>Anzeige:</strong> Unbekannte HTTP-Domains erhalten die Standardseite mit HTTP 404. F&#252;r konfigurierte Domains mit nicht erreichbarem Backend wird sie bei HTTP 502/503/504 gezeigt. Ein unbekannter HTTPS-Hostname ben&#246;tigt weiterhin ein passendes TLS-Zertifikat, sonst erscheint zuerst eine Browserwarnung. DNS und Router m&#252;ssen auf ProxyCircuit zeigen.</div>
+          <div class="default-editor-layout">
+            <div class="panel default-editor-panel">
+              <div class="panel-heading"><div><h2>HTML &amp; CSS bearbeiten</h2><p>Die Standardseite bleibt auch nach Updates gespeichert.</p></div><span class="eyebrow accent" id="defaultPageMode">LADEN ...</span></div>
+              <label for="defaultHtmlEditor">Quelltext der Standardseite</label>
+              <textarea id="defaultHtmlEditor" spellcheck="false" aria-label="HTML-Quelltext" placeholder="HTML wird geladen ..."></textarea>
+              <div class="default-editor-actions"><button class="btn primary" id="saveDefaultHtml" type="button">Speichern &amp; aktivieren</button><button class="btn outline" id="previewDefaultHtml" type="button">Vorschau aktualisieren</button><button class="btn outline" id="resetDefaultHtml" type="button">Vorlage wiederherstellen</button></div>
+              <p class="footnote" id="defaultPageState">Nur Administratoren k&#246;nnen speichern. JavaScript, Formulare und externe Einbettungen sind aus Sicherheitsgr&#252;nden deaktiviert.</p>
+            </div>
+            <div class="panel default-preview-panel"><div class="panel-heading"><div><h2>Live-Vorschau</h2><p>Vorschau ohne Skriptausf&#252;hrung.</p></div></div><iframe id="defaultHtmlPreview" title="Vorschau der Standardseite" sandbox="" referrerpolicy="no-referrer"></iframe></div>
+          </div>
+        </section>
+        <section class="view hidden" id="view-streams">
+          <div class="page-title"><div><div class="eyebrow accent">TRANSPORTLAYER</div><h1>TCP / UDP Portregeln</h1><p>Mehrere Dienste pro Zielserver auf eigenen externen Ports.</p></div><button class="btn primary" id="addStream">+ Portregel hinzufügen</button></div>
+          <div class="panel table-panel"><div class="table-wrap"><table><thead><tr><th>DIENST</th><th>PROTOKOLL</th><th>EXTERNER PORT</th><th>ZIEL</th><th>STATUS</th><th>AKTIONEN</th></tr></thead><tbody id="streamRows"></tbody></table></div></div>
+          <div class="info-bar"><strong>Hinweis:</strong> TCP und UDP werden über das Nginx-Stream-Modul verarbeitet, nicht als HTTP-Proxys. Benötigte Firewall-/Router-Freigaben erfolgen separat. SSH im Container verwendet typischerweise Port 22 – für SSH-Weiterleitungen z. B. extern 2222 verwenden.</div>
+        </section>
+        <section class="view hidden" id="view-certificates">
+          <div class="page-title"><div><div class="eyebrow accent">TRANSPORTVERSCHLÜSSELUNG</div><h1>SSL-Zertifikate</h1><p>Manuelle PEM-Zertifikate und Let's Encrypt per HTTP-01.</p></div><div class="btn-group"><button class="btn outline" id="importCert">PEM importieren</button><button class="btn primary" id="issueCert">+ Let's Encrypt</button></div></div>
+          <div class="panel table-panel"><div class="table-wrap"><table><thead><tr><th>DOMAIN / LABEL</th><th>TYP</th><th>ABLAUF</th><th>STATUS</th><th>AKTIONEN</th></tr></thead><tbody id="certRows"></tbody></table></div></div>
+          <div class="info-bar"><strong>ACME-Voraussetzung:</strong> Die Domain muss öffentlich auf diesen Container zeigen und Port 80 muss von außen erreichbar sein. Im Test-Container hinter dem bisherigen Proxy schlägt HTTP-01 sonst fehl. Automatische Wildcard-DNS-01-Integration ist für eine spätere Version vorgesehen.</div>
+        </section>
+        <section class="view hidden" id="view-monitoring">
+          <div class="page-title"><div><div class="eyebrow accent">BEOBACHTBARKEIT</div><h1>Monitoring & Logs</h1><p>Zielerreichbarkeit, lokales HTTPS und aktuelle Nginx-Protokolle.</p></div><button class="btn outline" id="refreshHealth">↻ Jetzt prüfen</button></div>
+          <div class="panel"><div class="panel-heading"><div><h2>Domain- und Eingangsdiagnose</h2><p>In Proxy-Domains bei einer Domain auf „Vollanalyse“ klicken.</p></div></div>
+            <div class="info-bar">Eine funktionierende interne HTTPS-Verbindung beweist <strong>nicht</strong>, dass eingehende Internet-Anfragen an diesen Container weitergeleitet werden. Router/NAT und den bisherigen Nginx Proxy Manager separat pruefen.</div>
+            <pre class="route-diagnostic" id="routeDiagnostic">Waehle in Proxy-Domains eine Domain aus und klicke auf „Diagnose“.</pre>
+          </div>
+          <div class="panel"><div class="panel-heading"><div><h2>Zielerreichbarkeit der Domains</h2><p>HTTP/HTTPS-Pruefung der eingetragenen Backends sowie TCP/UDP-Status; keine oeffentliche Internet-Pruefung</p></div></div><div class="health-controls"><label for="healthSearch">Domains suchen<input type="search" id="healthSearch" placeholder="Domain oder Kategorie ..." autocomplete="off"></label><span id="healthCounter"></span></div><div class="category-tabs" id="healthCategoryTabs" role="group" aria-label="Monitoring-Kategorien"></div><div id="healthRows" class="health-grid health-grid-compact"></div></div>
+          <div class="panel log-panel"><div class="panel-heading"><div><h2>Nginx-Protokolle</h2><p>Automatisch alle 5 Sekunden aktualisiert</p></div><select id="logType"><option value="error">Fehlerprotokoll</option><option value="access">Zugriffsprotokoll</option></select></div><pre id="logOutput">Lade Logdatei...</pre></div>
+        </section>
+        <section class="view hidden" id="view-users">
+          <div class="page-title"><div><div class="eyebrow accent">ROLLEN & SICHERHEIT</div><h1>Benutzerverwaltung</h1><p>Mehrere Personen mit eigenen Zugangsdaten. Rollen: Administrator, Bearbeiter, Leser.</p></div></div>
+          <div class="two-col">
+            <div class="panel"><h2>Benutzer hinzufügen</h2>
+              <form id="createUserForm" autocomplete="off">
+                <label>Benutzername<input name="username" required minlength="3" maxlength="80" pattern="[A-Za-z0-9._-]+" placeholder="max.mustermann"></label>
+                <label>Passwort (mind. 8 Zeichen)<input name="password" type="password" required minlength="8" autocomplete="new-password"></label>
+                <label>Rolle<select name="role"><option value="viewer">Leser (nur ansehen)</option><option value="editor">Bearbeiter (Domains und SSL)</option><option value="admin">Administrator (volle Rechte)</option></select></label>
+                <button type="submit" class="btn primary">+ Benutzer anlegen</button>
+              </form>
+            </div>
+            <div class="panel"><h2>Zugriffsregeln</h2><p><strong>Administrator:</strong> Vollzugriff inklusive Benutzerverwaltung.</p><p><strong>Bearbeiter:</strong> Domains, TCP/UDP-Regeln, SSL-Zertifikate und Diagnose.</p><p><strong>Leser:</strong> Monitoring und Einstellungen nur ansehen.</p><div class="info-bar">Benutzerkennwörter werden als scrypt-Hash gespeichert. Jeder Account verwendet sichere HTTPS-Sitzungscookies und CSRF-Schutz.</div></div>
+          </div>
+          <div class="panel table-panel"><div class="table-wrap"><table><thead><tr><th>BENUTZER</th><th>ROLLE</th><th>STATUS</th><th>AKTIONEN</th></tr></thead><tbody id="usersRows"></tbody></table></div></div>
+        </section>
+        <section class="view hidden" id="view-utilities">
+          <div class="page-title"><div><div class="eyebrow accent">NETZWERK · DIAGNOSE</div><h1>Netzwerk-Werkzeuge</h1><p>CIDR-Rechner, lokale Suche, Wake-on-LAN und Forward-Proxy-Debugging.</p></div></div>
+          <div class="utility-grid">
+            <div class="panel"><h2>CIDR / IP-Konverter</h2><p>IPv4 und IPv6, Netzmaske, Netzwerk und Hostbereich.</p>
+              <form id="cidrForm"><label>Adresse oder Netz<input name="cidr" value="10.0.0.0/24" required maxlength="80" placeholder="192.168.1.0/24"></label><button type="submit" class="btn primary">Berechnen</button></form>
+              <pre class="utility-output" id="cidrOutput" aria-live="polite">Bereit.</pre>
+            </div>
+            <div class="panel admin-utility"><h2>IP-Scanner</h2><p>Privates Netz bis 256 Adressen; Erreichbarkeit per TCP.</p>
+              <form id="ipScanForm"><label>IPv4-Netz (maximal /24)<input name="cidr" value="10.0.0.0/24" required></label><label>TCP-Probeports, max. 6<input name="ports" value="22,80,443" required></label><button type="submit" class="btn primary">IP-Adressen scannen</button></form>
+              <pre class="utility-output" id="ipScanOutput" aria-live="polite">Bereit.</pre>
+            </div>
+            <div class="panel admin-utility"><h2>Port-Scanner</h2><p>Nur eine private IPv4-Adresse, bis 128 TCP-Ports pro Lauf.</p>
+              <form id="portScanForm"><label>Ziel-IP<input name="host" value="10.0.0.1" required></label><label>Ports (z. B. 22,80,443,8006,9443)<input name="ports" value="22,80,443,8006,9443" required></label><button type="submit" class="btn primary">Ports prüfen</button></form>
+              <pre class="utility-output" id="portScanOutput" aria-live="polite">Bereit.</pre>
+            </div>
+            <div class="panel admin-utility"><h2>mDNS-Scanner</h2><p>Entdeckt Multicast-Dienste und Gerätenamen im lokalen Segment (UDP 5353).</p>
+              <button type="button" class="btn outline" id="scanMdns">mDNS-Suche starten</button>
+              <pre class="utility-output" id="mdnsOutput" aria-live="polite">Bereit. Bei LXC/VLAN kann Multicast eingeschränkt sein.</pre>
+            </div>
+            <div class="panel admin-utility"><h2>Wake-on-LAN</h2><p>Magic Packet für einen Rechner im LAN senden.</p>
+              <form id="wolForm"><label>MAC-Adresse<input name="mac" required placeholder="AA:BB:CC:DD:EE:FE"></label><div class="utility-inline"><label>Broadcast<input name="broadcast" value="255.255.255.255" required></label><label>UDP-Port<select name="port"><option value="9">9</option><option value="7">7</option></select></label></div><button type="submit" class="btn primary">Magic Packet senden</button></form>
+              <pre class="utility-output" id="wolOutput" aria-live="polite">Bereit.</pre>
+            </div>
+            <div class="panel admin-utility"><h2>Debug Forward Proxy</h2><p>HTTP-Proxy/CONNECT gegen eine bereits konfigurierte Domain testen, ohne fremde URLs abzurufen.</p>
+              <form id="forwardProxyForm"><div class="utility-inline"><label>Proxy-IP im LAN<input name="proxy_ip" value="10.0.0.1" required></label><label>Proxy-Port<input type="number" name="proxy_port" min="1" max="65535" value="3128" required></label></div><label>Test-Zieldomain aus ProxyCircuit<select id="forwardHostId" name="host_id" required><option value="">Domains werden geladen …</option></select></label><button type="submit" class="btn primary">Forward Proxy testen</button></form>
+              <pre class="utility-output" id="forwardOutput" aria-live="polite">Bereit.</pre>
+            </div>
+          </div>
+          <div class="info-bar">Aktive Netzwerktests sind nur für Administratoren verfügbar. Kein Internet-Scan: IPs und Proxy-Endpunkte müssen private IPv4-Adressen sein. Scan-Ergebnisse zeigen TCP-Verbindungen, keine garantierte Dienstfunktion.</div>
+        </section>
+        <section class="view hidden" id="view-webssh">
+          <div class="page-title"><div><div class="eyebrow accent">ADMINISTRATOR · GESCHÜTZT</div><h1>Web-SSH Terminal</h1><p>Direkte SSH-Verbindung von CT 150 zu einem privaten IPv4-Ziel über einen überprüften Hostschlüssel.</p></div></div>
+          <div class="panel ssh-panel">
+            <form id="sshConnectForm" autocomplete="off">
+              <div class="ssh-form-grid">
+                <label>SSH-Ziel-IP<input name="host" required value="192.168.50.9" autocomplete="off"></label>
+                <label>Port<input name="port" type="number" min="1" max="65535" value="22" required></label>
+                <label>Benutzer<input name="username" value="root" required autocomplete="username"></label>
+                <label>SSH-Passwort (nicht gespeichert)<input name="password" type="password" required autocomplete="off"></label>
+              </div>
+              <div class="ssh-pin-row"><label>Verifizierter SSH-Hostkey (SHA256-Fingerprint)<input id="sshFingerprint" name="fingerprint" placeholder="SHA256:..." required autocomplete="off"></label><button type="button" id="fetchSshKey" class="btn outline">Hostkey lesen</button></div>
+              <div class="info-bar">Vergleiche den angezeigten Fingerprint vor dem Verbinden mit <code>ssh-keygen -lf /etc/ssh/ssh_host_*.pub</code> auf dem Zielserver (gleichen Schlüsselalgorithmus wählen). Ein automatisch gelesener Fingerprint allein beweist noch keine Identität. SSH funktioniert nur mit aktivem Passwort-Login auf dem Ziel.</div>
+              <div class="btn-group"><button type="submit" id="sshConnect" class="btn primary">SSH verbinden</button><button type="button" id="sshDisconnect" class="btn danger" disabled>Trennen</button><span class="ssh-state" id="sshStatus">Getrennt</span></div>
+            </form>
+            <pre class="ssh-screen" id="sshScreen" role="log" aria-live="off">ProxyCircuit Web-SSH · Noch nicht verbunden.</pre>
+            <form id="sshInputForm" class="ssh-input-form" autocomplete="off"><label class="visually-hidden" for="sshCommand">SSH-Eingabe</label><input id="sshCommand" maxlength="4096" placeholder="Befehl eingeben und Enter drücken" disabled><button class="btn primary" type="submit" id="sshSend" disabled>Senden ↵</button><button class="btn outline" type="button" id="sshCtrlC" disabled>Ctrl+C</button></form>
+            <p class="footnote">Die Oberfläche überträgt SSH-Daten verschlüsselt per WSS. Maximal zwei Sitzungen, maximal 15 Minuten; Admin-Anmeldung erforderlich. Kein Passwort wird gespeichert.</p>
+          </div>
+        </section>
+        <section class="view hidden" id="view-plugins">
+          <div class="page-title"><div><div class="eyebrow accent">MODULARE ERWEITERUNG</div><h1>Plugin-System</h1><p>Vorbereitete Manifest-Struktur für zukünftige Module.</p></div></div>
+          <div class="panel"><h2>Installierte Plugin-Manifeste</h2><div id="pluginRows"></div><div class="info-bar"><strong>Beta:</strong> Plugin-Erkennung ist vorbereitet. Dynamisches Nachladen, Signaturprüfung, Installieren und Aktualisieren über die Oberfläche sind noch nicht freigegeben.</div></div>
+        </section>
+        <section class="view hidden" id="view-backups">
+          <div class="page-title"><div><div class="eyebrow accent">WIEDERHERSTELLUNG</div><h1>Backup & Export</h1><p>Konfiguration exportieren und sichere Wiederherstellung am Server vornehmen.</p></div><button class="btn primary" id="exportConfig">↓ Konfiguration exportieren</button></div>
+          <div class="two-col"><div class="panel"><div class="feature-icon">◫</div><h2>Konfigurations-Export</h2><p>JSON-Datei mit Domains, TCP/UDP-Regeln und Zertifikatsmetadaten. Keine privaten Schlüssel oder Anmeldedaten.</p><button class="btn outline" id="exportConfig2">JSON herunterladen</button></div><div class="panel"><div class="feature-icon">▤</div><h2>Vollbackup am Server</h2><p>Verschlüsselungsschlüssel, Zertifikate und SQLite-Datenbank gehören in ein geschütztes Root-Backup. Wiederherstellung wird aus Sicherheitsgründen per Server-CLI ausgeführt.</p><code>sudo rpmgr-backup</code><code>sudo rpmgr-restore /pfad/zur/datei.tar.gz</code></div></div>
+          <div class="panel"><h2>Bereitstellung & Diagnose</h2><p id="deployState"></p><button class="btn outline" id="retryDeploy">Nginx-Konfiguration erneut prüfen und aktivieren</button></div>
+        </section>
+      </div>
+      <footer class="app-footer">ProxyCircuit · © 2026 Mohammad Zamir Akbari · <a href="https://zamir.akbari.org" target="_blank" rel="noopener noreferrer">zamir.akbari.org</a></footer>
+    </main>
+  </div>
+  <div id="modalOverlay" class="modal-overlay hidden"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle"><div class="modal-head"><h2 id="modalTitle"></h2><button id="closeModal" class="icon-button" aria-label="Schließen">×</button></div><form id="modalForm"><div id="modalFields"></div><div id="modalError" class="form-error" aria-live="polite"></div><div class="modal-actions"><button class="btn outline" type="button" id="cancelModal">Abbrechen</button><button class="btn primary" type="submit" id="saveModal">Speichern</button></div></form></div></div>
+  <div id="passwordResetOverlay" class="modal-overlay hidden">
+    <form id="passwordResetForm" class="modal" aria-label="Benutzerkennwort zurücksetzen">
+      <div class="modal-head"><h2>Passwort zurücksetzen</h2></div>
+      <p>Benutzer: <strong id="passwordUsername"></strong>. Alle bisherigen Sitzungen des Benutzers werden beendet.</p>
+      <label>Neues Passwort (mind. 8 Zeichen)<input name="password" type="password" required minlength="8" autocomplete="new-password"></label>
+      <div id="passwordResetError" class="form-error" role="alert"></div>
+      <div class="modal-actions"><button type="button" class="btn outline" id="passwordResetCancel">Abbrechen</button><button type="submit" class="btn primary">Passwort ändern</button></div>
+    </form>
+  </div>
+  <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+</body></html>

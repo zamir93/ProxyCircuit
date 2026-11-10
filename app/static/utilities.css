@@ -1,0 +1,55 @@
+/* ProxyCircuit v0.2.2 Beta | Author: Mohammad Zamir Akbari | https://zamir.akbari.org | Copyright (c) 2026 Mohammad Zamir Akbari. */
+/* Network tools are isolated from the existing domain and certificate UI. */
+.tools-caption{padding-top:22px}
+.utility-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.utility-grid>.panel{min-width:0;margin-bottom:0}
+.utility-grid .panel>p{font-size:12px;min-height:37px}
+.utility-grid form{margin-top:20px}
+.utility-grid label{min-width:0}
+.utility-inline{display:grid;grid-template-columns:minmax(0,2fr) minmax(100px,1fr);gap:12px}
+.utility-output{background:#081524;color:#9ee9d7;border:1px solid #2d4a5e;border-radius:9px;font-size:12px;line-height:1.6;padding:13px;max-height:245px;min-height:66px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;margin:18px 0 0}
+.utility-output.error{color:#ffaab7;border-color:#6b3e50}
+.ssh-panel{max-width:1250px}
+.ssh-form-grid{display:grid;grid-template-columns:2fr 1fr 1.3fr 2fr;gap:14px}
+.ssh-pin-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:13px;align-items:end}
+.ssh-pin-row .btn{margin-bottom:16px}
+.ssh-state{display:inline-flex;align-items:center;font-size:12px;color:var(--muted);margin-left:10px}
+.ssh-screen{background:#040b13;color:#c0f6e4;border:1px solid #2a5362;border-radius:11px;padding:18px;min-height:320px;height:400px;max-height:65vh;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;font:13px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace;margin:20px 0}
+.ssh-input-form{display:flex;align-items:center;gap:10px;min-width:0}
+.ssh-input-form input{flex:1;min-width:0;display:block;background:#0c192b;border:1px solid #364a63;color:#e5f1ff;border-radius:8px;padding:11px 12px}
+.visually-hidden{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.mobile-menu-button{display:none;background:#182b40;color:#c9f6e5;border:1px solid #36505d;border-radius:9px;min-width:42px;min-height:42px;font-size:22px;align-items:center;justify-content:center}
+.mobile-backdrop{display:none}
+@media(max-width:1100px){.ssh-form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:800px){
+ .utility-grid{grid-template-columns:1fr;gap:14px}
+ .utility-grid .panel>p{min-height:0}
+ .shell{display:flex}
+ .shell>.sidebar{position:fixed;left:0;top:0;height:100dvh;width:min(310px,88vw);z-index:52;transform:translateX(-102%);transition:transform .22s ease;display:flex;flex-direction:column;overflow-y:auto;padding:18px 13px;background:#0e1828;box-shadow:12px 0 42px #0009}
+ .shell>.sidebar.mobile-open{transform:translateX(0)}
+ .shell>.sidebar #navigation{display:flex;flex-direction:column;overflow:visible;gap:2px}
+ .shell>.sidebar .nav-item{width:100%;white-space:normal;font-size:13px;padding:12px 15px;flex-shrink:0}
+ .shell>.sidebar .side-caption,.shell>.sidebar .sidebar-bottom{display:block}
+ .shell>.sidebar .brand{padding-bottom:26px}
+ .shell>.main{width:100%;min-width:0}
+ .mobile-backdrop:not(.hidden){position:fixed;display:block;inset:0;background:#0009;z-index:51;border:0;width:100%;height:100%}
+ .mobile-menu-button{display:inline-flex;flex-shrink:0}
+ .topbar{gap:11px;padding:0 14px}
+ .breadcrumb{min-width:0;overflow:hidden;white-space:nowrap;font-size:10px;gap:6px}
+ .breadcrumb strong{overflow:hidden;text-overflow:ellipsis}
+ .top-actions{gap:7px}
+ .top-mini{display:none}
+ .content{padding:20px 12px}
+ .panel{padding:16px}
+ .page-title h1{font-size:27px}
+ .ssh-form-grid{grid-template-columns:1fr}
+ .ssh-pin-row{grid-template-columns:1fr}
+ .ssh-pin-row .btn{margin:-2px 0 17px}
+ .ssh-input-form{flex-wrap:wrap}
+ .ssh-input-form input{flex-basis:100%}
+ .ssh-screen{height:300px;min-height:250px}
+ .domain-toolbar{padding:13px}
+ .bulk-actions{gap:8px}
+ .toast{max-width:calc(100% - 32px);right:16px;bottom:12px}
+}
+@media(max-width:390px){.utility-inline{grid-template-columns:1fr}.avatar{display:none}.login-card{padding:22px}}
