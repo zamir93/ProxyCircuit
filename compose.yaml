@@ -1,0 +1,33 @@
+# ProxyCircuit v0.2.3-beta | Docker Compose example for Linux
+# Author: Mohammad Zamir Akbari | https://zamir.akbari.org
+services:
+  proxycircuit:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    image: proxycircuit:0.2.3-beta
+    container_name: proxycircuit
+    restart: unless-stopped
+    init: false # The image already uses tini as PID 1
+    ports:
+      - '80:80/tcp'
+      - '443:443/tcp'
+      # Admin only accessible on the Docker host; use SSH tunneling or a private VPN.
+      - '127.0.0.1:9443:9443/tcp'
+    volumes:
+      - pc_data:/var/lib/rpmgr
+      - pc_admin_tls:/etc/rpmgr
+      - pc_acme:/etc/letsencrypt
+      - pc_acme_webroot:/var/www/rpmgr-acme
+      - pc_fallback:/var/www/rpmgr-fallback
+      - pc_nginx_logs:/var/log/nginx
+    security_opt:
+      - no-new-privileges:true
+    # Additional TCP/UDP stream ports must be explicitly published here.
+volumes:
+  pc_data:
+  pc_admin_tls:
+  pc_acme:
+  pc_acme_webroot:
+  pc_fallback:
+  pc_nginx_logs:

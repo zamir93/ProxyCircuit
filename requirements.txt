@@ -1,0 +1,8 @@
+# ProxyCircuit v0.1.1 Beta | Author: Mohammad Zamir Akbari | https://zamir.akbari.org | Copyright (c) 2026 Mohammad Zamir Akbari.
+fastapi>=0.115,<1
+uvicorn>=0.30,<1
+pydantic>=2.8,<3
+psutil>=6,<9
+paramiko>=3.4,<5
+zeroconf>=0.130,<1
+websockets>=13,<16

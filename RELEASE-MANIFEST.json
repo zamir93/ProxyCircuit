@@ -1,0 +1,13 @@
+{
+  "product": "ProxyCircuit",
+  "version": "0.2.3-beta",
+  "release_type": "public-beta-source-package",
+  "author": "Mohammad Zamir Akbari",
+  "author_website": "https://zamir.akbari.org",
+  "debian_native": "Debian 12/13 with systemd",
+  "docker": "example, built and run not verified in this environment",
+  "screenshots": 6,
+  "test_result": "60 local tests passed",
+  "contains_real_data": false,
+  "license": "not selected, see LICENSE-NOTICE.md"
+}
