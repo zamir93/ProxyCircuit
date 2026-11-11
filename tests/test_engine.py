@@ -73,6 +73,8 @@ class ValidationTest(unittest.TestCase):
                 '-keyout',str(key),'-out',str(cert),'-subj','/CN=localhost'],
                 check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
             rendered=render_http([],[]).replace('/etc/rpmgr/admin.crt',str(cert)).replace('/etc/rpmgr/admin.key',str(key))
+            rendered = rendered.replace('listen 80 default_server;', 'listen 127.0.0.1:18080 default_server;')
+            rendered = rendered.replace('listen 443 ssl default_server;', 'listen 127.0.0.1:18443 ssl default_server;')
             h.write_text(rendered);s.write_text(render_stream([]))
             nginx=f'''worker_processes 1;
 pid {root}/nginx.pid;
