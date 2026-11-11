@@ -78,7 +78,7 @@ class ValidationTest(unittest.TestCase):
 pid {root}/nginx.pid;
 error_log {root}/nginx-error.log;
 events {{ worker_connections 100; }}
-http {{ include /etc/nginx/mime.types; include {h}; }}
+http {{ access_log off; include /etc/nginx/mime.types; include {h}; }}
 stream {{ }}
 '''
             # Basic parse test with http; Debian's stream module may require explicit load_module.
