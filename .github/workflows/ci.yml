@@ -1,0 +1,30 @@
+name: Tests / Build
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+jobs:
+  python-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y nginx libnginx-mod-stream openssl
+          python -m pip install -r requirements.txt pytest httpx
+      - name: Python and shell syntax
+        run: |
+          python -m compileall -q app
+          bash -n scripts/*.sh docker/*.sh
+      - name: Run tests
+        run: python -m pytest -q
+  docker-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Docker image (build only; no deployment)
+        run: docker build -f docker/Dockerfile -t proxycircuit:ci .
