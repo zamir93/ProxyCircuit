@@ -67,7 +67,7 @@ class DefaultPageTests(unittest.TestCase):
             (base/'managed.conf').write_text(rendered)
             main=base/'nginx.conf'
             main.write_text(f'worker_processes 1; pid {base}/nginx.pid; error_log {base}/error.log; '+
-                            f'events {{ worker_connections 256; }} http {{ include /etc/nginx/mime.types; include {base}/managed.conf; }}')
+                            f'events {{ worker_connections 256; }} http {{ access_log off; include /etc/nginx/mime.types; include {base}/managed.conf; }}')
             proc=subprocess.run(['nginx','-t','-c',str(main),'-p',td],capture_output=True,text=True)
             self.assertEqual(proc.returncode,0,proc.stderr)
             server=subprocess.Popen(['nginx','-c',str(main),'-p',td,'-g','daemon off;'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
