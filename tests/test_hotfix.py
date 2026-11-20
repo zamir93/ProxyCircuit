@@ -1,7 +1,7 @@
 # ProxyCircuit v0.2.0 Beta | Author: Mohammad Zamir Akbari | https://zamir.akbari.org | Copyright (c) 2026 Mohammad Zamir Akbari.
 import unittest
 from pathlib import Path
-from app.engine import render_http
+from app.engine import render_http, nginx_supports_http2_directive
 from app.security import hash_password, verify_password
 
 STATIC=Path(__file__).resolve().parents[1] / 'app' / 'static'
@@ -27,7 +27,11 @@ class HotfixTest(unittest.TestCase):
         cert={'id':'cert1','status':'ready','fullchain_path':'/var/lib/rpmgr/certs/fullchain.pem',
               'privkey_path':'/var/lib/rpmgr/certs/privkey.pem','domain':'example.org'}
         config=render_http([host],[cert])
-        self.assertIn('    listen 443 ssl;\n    http2 on;',config)
-        self.assertNotIn('listen 443 ssl http2', config)
+        if nginx_supports_http2_directive():
+            self.assertIn('    listen 443 ssl;\n    http2 on;',config)
+            self.assertNotIn('listen 443 ssl http2',config)
+        else:
+            self.assertIn('    listen 443 ssl http2;',config)
+            self.assertNotIn('http2 on;',config)
 
 if __name__=='__main__': unittest.main()

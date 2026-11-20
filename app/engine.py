@@ -1,6 +1,28 @@
 # ProxyCircuit v0.2.3 Beta | Author: Mohammad Zamir Akbari | https://zamir.akbari.org | Copyright (c) 2026 Mohammad Zamir Akbari.
 """Deterministic Nginx config renderer, with no arbitrary directive input."""
+import re
+import subprocess
+from functools import lru_cache
+
 from .validation import HostInput, StreamInput, nginx_target, cert_matches_domain, clean_domain, clean_target, clean_upstream_path
+
+
+@lru_cache(maxsize=1)
+def nginx_supports_http2_directive():
+    """NGINX >=1.25.1 uses `http2 on;`; older releases need `listen ... http2`.
+
+    Debian 12 and Ubuntu 24.04 ship older NGINX; Debian 13 ships newer.
+    If the installed version cannot be determined, prefer the compatible
+    legacy syntax instead of generating an unknown `http2` directive.
+    """
+    try:
+        result = subprocess.run(['/usr/sbin/nginx', '-v'], capture_output=True,
+                                text=True, timeout=3, check=False)
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    match = re.search(r'nginx/(\d+)\.(\d+)\.(\d+)',
+                      result.stderr + ' ' + result.stdout)
+    return bool(match and tuple(map(int, match.groups())) >= (1, 25, 1))
 
 FALLBACK_FILE = '__proxycircuit_error_page.html'
 FALLBACK_LOCATION = r'''
@@ -38,7 +60,8 @@ server {
 # Unknown HTTPS requests can display HTML only after a TLS handshake.
 # The local admin certificate is not generally trusted for arbitrary domains.
 server {
-    listen 443 ssl http2 default_server;
+    listen 443 ssl default_server;
+    http2 on;
     server_name _;
     ssl_certificate /etc/rpmgr/admin.crt;
     ssl_certificate_key /etc/rpmgr/admin.key;
@@ -96,7 +119,11 @@ def proxy_location(row):
 
 def render_http(hosts, certificates):
     certs = {c['id']: c for c in certificates}
-    lines = [HTTP_HEADER]
+    modern_http2 = nginx_supports_http2_directive()
+    header = (HTTP_HEADER if modern_http2 else
+              HTTP_HEADER.replace('listen 443 ssl default_server;\n    http2 on;',
+                                  'listen 443 ssl http2 default_server;'))
+    lines = [header]
     for raw in sorted(hosts, key=lambda r: r['domain']):
         row = dict(raw)
         validated = HostInput(**row)
@@ -124,8 +151,10 @@ def render_http(hosts, certificates):
             lines.append(proxy_location(row))
         lines.append('}')
         if cert:
+            https_listen = (['    listen 443 ssl;', '    http2 on;'] if modern_http2
+                            else ['    listen 443 ssl http2;'])
             lines += [f'\n# HTTPS host: {domain}', 'server {',
-                      '    listen 443 ssl http2;', f'    server_name {domain};',
+                      *https_listen, f'    server_name {domain};',
                       '    error_page 502 503 504 /__proxycircuit_error_page.html;',
                       FALLBACK_LOCATION,
                       f'    ssl_certificate {cert["fullchain_path"]};',

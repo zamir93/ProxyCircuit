@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 import subprocess
 import tempfile
-from app.engine import render_http
+from app.engine import render_http, nginx_supports_http2_directive
 from app.main import FallbackPageInput
 
 class DefaultPageTests(unittest.TestCase):
@@ -13,7 +13,10 @@ class DefaultPageTests(unittest.TestCase):
                   upstream_scheme='http',websocket=1,force_https=0,certificate_id=None,enabled=True)
         config=render_http([host],[])
         self.assertIn('listen 80 default_server;',config)
-        self.assertIn('listen 443 ssl default_server;',config)
+        if nginx_supports_http2_directive():
+            self.assertIn('listen 443 ssl default_server;\n    http2 on;',config)
+        else:
+            self.assertIn('listen 443 ssl http2 default_server;',config)
         self.assertIn('error_page 404 /__proxycircuit_error_page.html;',config)
         self.assertIn('error_page 502 503 504 /__proxycircuit_error_page.html;',config)
         self.assertNotIn('error_page 200',config)
@@ -60,7 +63,9 @@ class DefaultPageTests(unittest.TestCase):
             rendered=render_http([host,off],[])
             rendered=rendered.replace('listen 80 default_server;',f'listen 127.0.0.1:{port} default_server;')
             rendered=rendered.replace('listen 80;',f'listen 127.0.0.1:{port};')
-            rendered=rendered.replace('listen 443 ssl default_server;',f'listen 127.0.0.1:{free_port()} ssl default_server;')
+            https_port=free_port()
+            rendered=rendered.replace('listen 443 ssl default_server;',f'listen 127.0.0.1:{https_port} ssl default_server;')
+            rendered=rendered.replace('listen 443 ssl http2 default_server;',f'listen 127.0.0.1:{https_port} ssl http2 default_server;')
             rendered=rendered.replace('listen 127.0.0.1:18081;',f'listen 127.0.0.1:{free_port()};')
             rendered=rendered.replace('/etc/rpmgr/admin.crt',str(cert)).replace('/etc/rpmgr/admin.key',str(key))
             rendered=rendered.replace('/var/www/rpmgr-fallback',str(page_dir))
