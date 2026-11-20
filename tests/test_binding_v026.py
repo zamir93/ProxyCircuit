@@ -207,7 +207,9 @@ class SafeDeployment(unittest.TestCase):
             subprocess.run(['openssl','req','-x509','-newkey','rsa:2048','-nodes',
                             '-keyout',str(key),'-out',str(cert),'-days','1','-subj','/CN=localhost'],
                            stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,check=True)
-            http=render_http([],[]).replace('/etc/rpmgr/admin.crt',str(cert)).replace('/etc/rpmgr/admin.key',str(key))
+            http=render_http([],[]).replace('/etc/rpmgr/admin.crt',str(cert)).replace('/etc/rpmgr/admin.key',str(key))          
+            http = re.sub(r'(\blisten\s+)80(?=[\s;])', r'\g<1>18080', http)
+            http = re.sub(r'(\blisten\s+)443(?=[\s;])', r'\g<1>18443', http)
             # Test works with port 80/443 because nginx -t is syntax only.
             report=deploy_safety.stage_test(http,render_stream([]))
             self.assertTrue(report['syntax_ok'])
