@@ -17,7 +17,7 @@ Die Hardware-/Storage-Ursache ist anhand der vorliegenden Informationen nicht ab
 ## Phase 2 – neuer CT
 
 - Im Proxmox-Webpanel prüfen, ob CT-ID 148 verfügbar ist.
-- Debian 13 LXC anlegen, eigene **noch freie** IP (z. B. im 10.0.0.0/24-Netz, aber nicht 10.0.0.12), SSD-Storage mit geprüfter Gesundheit.
+- Debian 13 LXC anlegen, eigene **noch freie** IP (z. B. im 192.168.10.0/24-Netz, aber nicht 192.168.10.12), SSD-Storage mit geprüfter Gesundheit.
 - Basiswerte: 1 vCPU, 1 GiB RAM, 10 GiB RootFS; Metriken unter Last beobachten.
 - DNS für eigene Testdomain lokal auf neue IP setzen; bisherige öffentliche Weiterleitungen 80/443 zunächst nicht ändern.
 - ZIP und Installationsskript **nur auf CT 148** starten.

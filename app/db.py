@@ -9,6 +9,12 @@ PRAGMA foreign_keys=ON;
 CREATE TABLE IF NOT EXISTS admins (
  username TEXT PRIMARY KEY, password_hash TEXT NOT NULL, role TEXT NOT NULL DEFAULT 'admin', active INTEGER NOT NULL DEFAULT 1, created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
+CREATE TABLE IF NOT EXISTS user_mfa (
+ username TEXT PRIMARY KEY REFERENCES admins(username) ON DELETE CASCADE,
+ secret TEXT NOT NULL, active INTEGER NOT NULL DEFAULT 0,
+ pending_until INTEGER DEFAULT 0, last_counter INTEGER NOT NULL DEFAULT -1,
+ created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
 CREATE TABLE IF NOT EXISTS sessions (
  token_hash TEXT PRIMARY KEY, username TEXT NOT NULL REFERENCES admins(username) ON DELETE CASCADE,
  csrf TEXT NOT NULL, expires INTEGER NOT NULL
@@ -21,6 +27,7 @@ CREATE TABLE IF NOT EXISTS certificates (
 CREATE TABLE IF NOT EXISTS hosts (
  id TEXT PRIMARY KEY, domain TEXT UNIQUE NOT NULL, upstream_scheme TEXT NOT NULL,
  upstream_host TEXT NOT NULL, upstream_port INTEGER NOT NULL, upstream_tls_name TEXT,
+ upstream_path TEXT NOT NULL DEFAULT '/',
  websocket INTEGER DEFAULT 1, force_https INTEGER DEFAULT 0,
  certificate_id TEXT REFERENCES certificates(id) ON DELETE SET NULL, category TEXT NOT NULL DEFAULT '',
  upstream_host_header TEXT,
@@ -28,10 +35,9 @@ CREATE TABLE IF NOT EXISTS hosts (
 );
 CREATE TABLE IF NOT EXISTS streams (
  id TEXT PRIMARY KEY, label TEXT NOT NULL, protocol TEXT NOT NULL,
- listen_port INTEGER NOT NULL, target_host TEXT NOT NULL, target_port INTEGER NOT NULL,
+ listen_port INTEGER NOT NULL, bind_ip TEXT NOT NULL DEFAULT '0.0.0.0', target_host TEXT NOT NULL, target_port INTEGER NOT NULL,
  timeout_seconds INTEGER DEFAULT 300, enabled INTEGER DEFAULT 1,
- created_at TEXT DEFAULT CURRENT_TIMESTAMP,
- UNIQUE(protocol, listen_port)
+ created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 CREATE TABLE IF NOT EXISTS certificate_jobs (
  id TEXT PRIMARY KEY, cert_id TEXT NOT NULL REFERENCES certificates(id) ON DELETE CASCADE,
@@ -44,6 +50,13 @@ CREATE TABLE IF NOT EXISTS certificate_cleanup (
 );
 CREATE TABLE IF NOT EXISTS site_settings (
  id INTEGER PRIMARY KEY CHECK(id=1), fallback_html TEXT NOT NULL, updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS deploy_history (
+ id TEXT PRIMARY KEY, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ state TEXT NOT NULL, http_sha256 TEXT NOT NULL DEFAULT '',
+ stream_sha256 TEXT NOT NULL DEFAULT '', message TEXT NOT NULL DEFAULT '',
+ rollback_ok INTEGER, last_good_at TEXT, duration_ms INTEGER DEFAULT 0,
+ snapshot_id TEXT NOT NULL DEFAULT '', diff_excerpt TEXT NOT NULL DEFAULT ''
 );
 CREATE TABLE IF NOT EXISTS audit (
  id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT NOT NULL, action TEXT NOT NULL,
@@ -73,14 +86,39 @@ def init_db():
         ('admins', 'active', 'INTEGER NOT NULL DEFAULT 1'),
         ('hosts', 'category', "TEXT NOT NULL DEFAULT ''"),
         ('hosts', 'upstream_host_header', 'TEXT'),
+        ('hosts', 'upstream_path', "TEXT NOT NULL DEFAULT '/'"),
         ('certificate_jobs', 'operation', "TEXT NOT NULL DEFAULT 'issue'"),
     ):
         columns = {r[1] for r in con.execute(f'PRAGMA table_info({table})')}
         if name not in columns:
             con.execute(f'ALTER TABLE {table} ADD COLUMN {name} {ddl}')
+    # Upgrading an old UNIQUE(protocol,listen_port) table: rebuild in one
+    # SQLite transaction. All rule IDs, existing ports and timestamps survive.
+    stream_cols = {row[1] for row in con.execute('PRAGMA table_info(streams)')}
+    if 'bind_ip' not in stream_cols:
+        con.execute("""CREATE TABLE streams_v026_upgrade (
+            id TEXT PRIMARY KEY, label TEXT NOT NULL, protocol TEXT NOT NULL,
+            listen_port INTEGER NOT NULL, bind_ip TEXT NOT NULL DEFAULT '0.0.0.0',
+            target_host TEXT NOT NULL, target_port INTEGER NOT NULL,
+            timeout_seconds INTEGER DEFAULT 300, enabled INTEGER DEFAULT 1,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP)""")
+        con.execute("""INSERT INTO streams_v026_upgrade
+            (id,label,protocol,listen_port,bind_ip,target_host,target_port,timeout_seconds,enabled,created_at)
+            SELECT id,label,protocol,listen_port,'0.0.0.0',target_host,target_port,
+                   timeout_seconds,enabled,created_at FROM streams""")
+        con.execute('DROP TABLE streams')
+        con.execute('ALTER TABLE streams_v026_upgrade RENAME TO streams')
+    con.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_stream_address ON streams(protocol,listen_port,bind_ip)')
+    history_cols = {row[1] for row in con.execute('PRAGMA table_info(deploy_history)')}
+    if 'snapshot_id' not in history_cols:
+        con.execute("ALTER TABLE deploy_history ADD COLUMN snapshot_id TEXT NOT NULL DEFAULT ''")
+    if 'diff_excerpt' not in history_cols:
+        con.execute("ALTER TABLE deploy_history ADD COLUMN diff_excerpt TEXT NOT NULL DEFAULT ''")
     con.execute('CREATE INDEX IF NOT EXISTS idx_hosts_category ON hosts(category)')
     con.execute('CREATE INDEX IF NOT EXISTS idx_sessions_username ON sessions(username)')
     con.execute('DELETE FROM sessions WHERE expires < ?', (int(time.time()),))
+    from .vpn import ensure_vpn_schema
+    ensure_vpn_schema(con)
     con.commit()
     con.close()
 

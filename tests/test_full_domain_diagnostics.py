@@ -37,7 +37,7 @@ server {
   proxy_ssl_name control.example.org;
   }
 }
-# HTTP host: other.afghanhost.de
+# HTTP host: other.example.org
 server { listen 80; }
 '''
         with tempfile.TemporaryDirectory() as tmp:
@@ -52,7 +52,7 @@ server { listen 80; }
     def test_separate_host_cannot_leak(self):
         with tempfile.TemporaryDirectory() as tmp:
             path=Path(tmp)/'nginx.conf'
-            path.write_text('# HTTPS host: another.afghanhost.de\nserver { proxy_ssl_name secrets.example.org; }\n')
+            path.write_text('# HTTPS host: another.example.org\nserver { proxy_ssl_name secrets.example.org; }\n')
             r=diagnostics.inspect_nginx_upstream('control.example.org',path)
             self.assertFalse(r['https_present'])
             self.assertNotIn('secrets', str(r))

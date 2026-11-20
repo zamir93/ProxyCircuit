@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- ProxyCircuit v0.2.3 Beta | Author: Mohammad Zamir Akbari | https://zamir.akbari.org | Copyright (c) 2026 Mohammad Zamir Akbari. -->
+<!-- ProxyCircuit v0.2.6 Beta | Author: Mohammad Zamir Akbari | https://zamir.akbari.org | Copyright (c) 2026 Mohammad Zamir Akbari. -->
 <html lang="de">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -7,14 +7,16 @@
   <meta name="author" content="Mohammad Zamir Akbari">
   <title>ProxyCircuit | Reverse Proxy &amp; Network Management</title>
   <link rel="icon" type="image/x-icon" href="/favicon.ico">
-  <link rel="stylesheet" href="/static/style.css?v=0.2.3">
+  <link rel="stylesheet" href="/static/style.css?v=0.2.6-bind1">
   <link rel="stylesheet" href="/static/features.css?v=0.2.3">
-  <script defer src="/static/app.js?v=0.2.3"></script>
-  <script defer src="/static/features.js?v=0.2.3"></script>
+  <script defer src="/static/app.js?v=0.2.6-bind1"></script>
+  <script defer src="/static/features.js?v=0.2.6-bind1"></script>
   <link rel="stylesheet" href="/static/utilities.css?v=0.2.3">
   <script defer src="/static/utilities.js?v=0.2.3"></script>
   <link rel="stylesheet" href="/static/domains-v023.css?v=0.2.3">
-  <script defer src="/static/domains-v023.js?v=0.2.3"></script>
+  <link rel="stylesheet" href="/static/vpn.css?v=0.2.6">
+  <script defer src="/static/vpn.js?v=0.2.6"></script>
+  <script defer src="/static/domains-v023.js?v=0.2.6-bind1"></script>
 </head>
 <body>
   <div class="login-screen" id="loginScreen">
@@ -26,6 +28,7 @@
       <p class="muted">Zentrale Steuerung für sichere Domains, Dienste und Ports.</p>
       <label>Benutzername<input type="text" name="username" value="admin" autocomplete="username" maxlength="80" required></label>
       <label>Passwort<input type="password" name="password" autocomplete="current-password" required></label>
+      <label>Einmalcode (falls MFA aktiviert)<input type="text" name="otp" maxlength="6" minlength="6" inputmode="numeric" autocomplete="one-time-code" placeholder="6-stelliger TOTP-Code"></label>
       <button class="btn primary full" type="submit">Sicher anmelden <span>→</span></button>
       <div id="loginError" class="form-error" aria-live="polite"></div>
       <div class="login-hint">Verbindung über HTTPS · Port 9443 · Keine Standardzugangsdaten</div>
@@ -34,7 +37,7 @@
   </div>
   <div id="shell" class="shell hidden">
     <aside class="sidebar">
-      <div class="brand"><div class="logo">⟠</div><div><strong>ProxyCircuit</strong><small>NETWORK PLATFORM <b>v0.2.3 Beta</b></small></div></div>
+      <div class="brand"><div class="logo">⟠</div><div><strong>ProxyCircuit</strong><small>NETWORK PLATFORM <b>v0.2.6 Beta</b></small></div></div>
       <div class="side-caption">VERWALTUNG</div>
       <nav id="navigation">
         <button data-view="dashboard" class="nav-item active"><span class="nav-icon">◈</span> Übersicht</button>
@@ -42,8 +45,9 @@
         <button data-view="defaultpage" class="nav-item"><span class="nav-icon">▣</span> Standardseite</button>
         <button data-view="streams" class="nav-item"><span class="nav-icon">⇄</span> TCP / UDP Ports</button>
         <button data-view="certificates" class="nav-item"><span class="nav-icon">♢</span> SSL-Zertifikate</button>
-        <button data-view="monitoring" class="nav-item"><span class="nav-icon">⌁</span> Monitoring & Logs</button>
+        <button data-view="monitoring" class="nav-item"><span class="nav-icon">⌁</span> Diagnose & Monitoring</button>
         <div class="side-caption tools-caption">NETZWERK</div>
+        <button data-view="vpn" class="nav-item"><span class="nav-icon">◉</span> VPN-Standorte</button>
         <button data-view="utilities" class="nav-item"><span class="nav-icon">⌘</span> Netzwerk-Werkzeuge</button>
         <button data-view="webssh" id="webSshNav" class="nav-item hidden"><span class="nav-icon">▤</span> Web-SSH Terminal</button>
         <button data-view="plugins" class="nav-item"><span class="nav-icon">◫</span> Plugins</button>
@@ -119,8 +123,9 @@
         </section>
         <section class="view hidden" id="view-streams">
           <div class="page-title"><div><div class="eyebrow accent">TRANSPORTLAYER</div><h1>TCP / UDP Portregeln</h1><p>Mehrere Dienste pro Zielserver auf eigenen externen Ports.</p></div><button class="btn primary" id="addStream">+ Portregel hinzufügen</button></div>
-          <div class="panel table-panel"><div class="table-wrap"><table><thead><tr><th>DIENST</th><th>PROTOKOLL</th><th>EXTERNER PORT</th><th>ZIEL</th><th>STATUS</th><th>AKTIONEN</th></tr></thead><tbody id="streamRows"></tbody></table></div></div>
-          <div class="info-bar"><strong>Hinweis:</strong> TCP und UDP werden über das Nginx-Stream-Modul verarbeitet, nicht als HTTP-Proxys. Benötigte Firewall-/Router-Freigaben erfolgen separat. SSH im Container verwendet typischerweise Port 22 – für SSH-Weiterleitungen z. B. extern 2222 verwenden.</div>
+          <div class="panel"><div class="health-controls"><label for="streamSearch">Portregeln suchen<input type="search" id="streamSearch" placeholder="Dienst, Bind-IP, Ziel, Port ..." autocomplete="off"></label><label for="streamProtocolFilter">Protokoll filtern<select id="streamProtocolFilter"><option value="">Alle Protokolle</option><option value="tcp">TCP</option><option value="udp">UDP</option></select></label></div></div>
+          <div class="panel table-panel"><div class="table-wrap"><table><thead><tr><th>DIENST</th><th>PROTOKOLL</th><th>BIND-IP : PORT</th><th>ZIEL</th><th>STATUS</th><th>AKTIONEN</th></tr></thead><tbody id="streamRows"></tbody></table></div></div>
+          <div class="info-bar"><strong>Bind-IP:</strong> Mit einer konkreten lokalen Listen-Adresse kann Port 25 z. B. auf 192.0.2.150 gebunden werden, auch wenn Postfix 127.0.0.1:25 nutzt. Verfuegbare IPs werden automatisch erkannt. <strong>Hinweis:</strong> TCP und UDP werden über das Nginx-Stream-Modul verarbeitet, nicht als HTTP-Proxys. Benötigte Firewall-/Router-Freigaben erfolgen separat. SSH im Container verwendet typischerweise Port 22 – für SSH-Weiterleitungen z. B. extern 2222 verwenden.</div>
         </section>
         <section class="view hidden" id="view-certificates">
           <div class="page-title"><div><div class="eyebrow accent">TRANSPORTVERSCHLÜSSELUNG</div><h1>SSL-Zertifikate</h1><p>Manuelle PEM-Zertifikate und Let's Encrypt per HTTP-01.</p></div><div class="btn-group"><button class="btn outline" id="importCert">PEM importieren</button><button class="btn primary" id="issueCert">+ Let's Encrypt</button></div></div>
@@ -128,7 +133,12 @@
           <div class="info-bar"><strong>ACME-Voraussetzung:</strong> Die Domain muss öffentlich auf diesen Container zeigen und Port 80 muss von außen erreichbar sein. Im Test-Container hinter dem bisherigen Proxy schlägt HTTP-01 sonst fehl. Automatische Wildcard-DNS-01-Integration ist für eine spätere Version vorgesehen.</div>
         </section>
         <section class="view hidden" id="view-monitoring">
-          <div class="page-title"><div><div class="eyebrow accent">BEOBACHTBARKEIT</div><h1>Monitoring & Logs</h1><p>Zielerreichbarkeit, lokales HTTPS und aktuelle Nginx-Protokolle.</p></div><button class="btn outline" id="refreshHealth">↻ Jetzt prüfen</button></div>
+          <div class="page-title"><div><div class="eyebrow accent">BEOBACHTBARKEIT</div><h1>Diagnose & Monitoring</h1><p>NGINX-Aktivierung, HTTPS-SNI, Portkonflikte, Backends und Protokolle.</p></div><button class="btn outline" id="refreshHealth">↻ Jetzt prüfen</button></div>
+          <div class="panel"><div class="panel-heading"><div><h2>NGINX-Prozess & Konfigurationsstatus</h2><p>Gespeicherte Aenderungen werden erst nach geprueftem NGINX-Reload aktiv.</p></div></div>
+            <div id="operationsStatus" class="info-bar" role="status">Lade Aktivierungszustand ...</div>
+            <h3>Konfigurationshistorie</h3><div id="deploymentHistory" class="deployment-history"></div>
+            <div class="info-bar">Bei fehlerhaftem Reload versucht ProxyCircuit die vorherige NGINX-Konfiguration wiederherzustellen. Die Datenbank enthaelt weiterhin deine gespeicherten Wuensche. Root-Backups dienen der vollstaendigen Wiederherstellung.</div>
+          </div>
           <div class="panel"><div class="panel-heading"><div><h2>Domain- und Eingangsdiagnose</h2><p>In Proxy-Domains bei einer Domain auf „Vollanalyse“ klicken.</p></div></div>
             <div class="info-bar">Eine funktionierende interne HTTPS-Verbindung beweist <strong>nicht</strong>, dass eingehende Internet-Anfragen an diesen Container weitergeleitet werden. Router/NAT und den bisherigen Nginx Proxy Manager separat pruefen.</div>
             <pre class="route-diagnostic" id="routeDiagnostic">Waehle in Proxy-Domains eine Domain aus und klicke auf „Diagnose“.</pre>
@@ -149,21 +159,113 @@
             </div>
             <div class="panel"><h2>Zugriffsregeln</h2><p><strong>Administrator:</strong> Vollzugriff inklusive Benutzerverwaltung.</p><p><strong>Bearbeiter:</strong> Domains, TCP/UDP-Regeln, SSL-Zertifikate und Diagnose.</p><p><strong>Leser:</strong> Monitoring und Einstellungen nur ansehen.</p><div class="info-bar">Benutzerkennwörter werden als scrypt-Hash gespeichert. Jeder Account verwendet sichere HTTPS-Sitzungscookies und CSRF-Schutz.</div></div>
           </div>
+          <div class="panel" id="mfaPanel">
+            <h2>Zusätzliche Anmeldungssicherheit · TOTP-MFA</h2>
+            <p>Fuer Administratoren optional: Einmalcodes aus einer Authenticator-App, ohne externe API. Halte vor der Aktivierung einen sicheren lokalen Wiederherstellungsweg bereit.</p>
+            <p id="mfaState" class="info-bar">MFA-Status noch nicht geladen.</p>
+            <button class="btn outline" type="button" id="mfaSetup">Authenticator einrichten</button>
+            <pre id="mfaSecret" class="route-diagnostic hidden"></pre>
+            <form id="mfaConfirmForm" class="mfa-form hidden" autocomplete="off"><label>Einrichtung bestaetigen: 6-stelliger Code<input name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" minlength="6" pattern="[0-9]{6}" required></label><button class="btn primary" type="submit">MFA aktivieren</button></form>
+            <form id="mfaDisableForm" class="mfa-form hidden" autocomplete="off"><label>Frischer Einmalcode zur Deaktivierung<input name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" minlength="6" pattern="[0-9]{6}" required></label><button class="btn outline" type="submit">MFA mit Code deaktivieren</button></form>
+            <p class="footnote">Bei verlorenem Authenticator: lokale Root-CLI <code>rpmgr-admin disable-mfa --user admin</code>. MFA-Geheimnisse niemals an Dritte weitergeben.</p>
+          </div>
           <div class="panel table-panel"><div class="table-wrap"><table><thead><tr><th>BENUTZER</th><th>ROLLE</th><th>STATUS</th><th>AKTIONEN</th></tr></thead><tbody id="usersRows"></tbody></table></div></div>
+        </section>
+        <section class="view hidden" id="view-vpn">
+          <div class="page-title"><div><div class="eyebrow accent">WIREGUARD · STANDORTE · PRIVATE ROUTEN</div><h1>VPN-Standorte</h1><p>Verschlüsselte Standortverbindungen planen und Proxy-Domains privaten Remote-Netzen zuordnen.</p></div></div>
+          <div class="vpn-alert" id="vpnWarnings">Die Verwaltung startet keine VPN-Tunnel und greift nicht in bestehende Netzwerke ein. Für den produktiven Betrieb wird ein separates WireGuard-Gateway benötigt.</div>
+          <div class="vpn-summary" id="vpnStats"></div>
+          <div class="panel vpn-preflight-panel" id="vpnPreflightPanel">
+            <div class="panel-heading"><div><h2>VPN-Inbetriebnahme prüfen · v0.2.5</h2>
+              <p>Voraussetzungen für getrennte WireGuard-Gateways prüfen – kein VPN wird automatisch aktiviert.</p></div><span class="vpn-status-chip" id="vpnPreflightChip">Nicht geprüft</span></div>
+            <div class="vpn-preflight-layout">
+              <form id="vpnLocalNetworksForm" class="vpn-admin-only">
+                <label>Lokale LAN-Netze (ein privates CIDR pro Zeile)
+                  <textarea id="vpnLocalNetworks" rows="4" placeholder="192.168.10.0/24&#10;192.168.1.0/24" spellcheck="false"></textarea>
+                </label>
+                <button type="submit" class="btn outline">Lokale Netze speichern</button>
+                <p class="vpn-muted">Nur für Überlappungsprüfung. Es werden keine Betriebssystem-Routen verändert.</p>
+              </form>
+              <div class="vpn-preflight-result">
+                <div class="btn-group vpn-admin-only">
+                  <button type="button" class="btn primary" id="vpnRunPreflight">Vorprüfung ausführen</button>
+                  <button type="button" class="btn outline" id="vpnExportPreflight" disabled>Bericht als JSON</button>
+                </div>
+                <p id="vpnPreflightSummary" class="vpn-muted" role="status" aria-live="polite">Konfiguration noch nicht geprüft.</p>
+                <div id="vpnPreflightIssues" class="vpn-preflight-issues"></div>
+              </div>
+            </div>
+            <div class="info-bar">Voraussetzungen geprüft bedeutet NICHT: Tunnel verbunden. Live-Handshake, Rückrouten und TLS müssen am getrennten Gateway zusätzlich geprüft werden.</div>
+          </div>
+          <div class="vpn-forms">
+            <div class="panel vpn-admin-only"><h2>Hub-Einstellungen</h2><p class="vpn-muted">Public Key vor der Verwendung direkt auf dem Gateway erzeugen. Private Schlüssel niemals hier eintragen.</p>
+              <form id="vpnHubForm" class="vpn-form-2">
+                <label>WireGuard-Interface<input name="interface" required value="wg-pc0"></label>
+                <label>Hub-IP / CIDR<input name="address" required value="10.77.77.1/24"></label>
+                <label>UDP-Port<input name="listen_port" required type="number" value="51820" min="1024" max="65535"></label>
+                <label>Öffentliche Hub-Adresse<input name="endpoint" placeholder="vpn.example.net"></label>
+                <label class="span-all">Hub Public Key (Base64)<input name="public_key" placeholder="Public Key von wg pubkey" autocomplete="off"></label>
+                <label class="span-all">LAN-IP des separaten VPN-Gateways (optional)<input name="gateway_lan_ip" placeholder="192.168.10.250"></label>
+                <button type="submit" class="btn primary">Hub-Plan speichern</button>
+              </form>
+            </div>
+            <div class="panel vpn-admin-only"><h2>Remote-Gateway hinzufügen</h2><p class="vpn-muted">Ein Gateway pro Standort. Peer-Public-Key und eindeutige Tunnel-IP eintragen.</p>
+              <form id="vpnSiteForm" class="vpn-form-2"><input type="hidden" name="site_id">
+                <label>Standortname<input name="name" required placeholder="Indonesien · Büro"></label>
+                <label>Tunnel-IP des Peers<input name="tunnel_ip" required placeholder="10.77.77.2"></label>
+                <label class="span-all">WireGuard Public Key des entfernten Gateways<input name="public_key" required autocomplete="off" placeholder="Base64 Public Key"></label>
+                <label>Remote Endpunkt (optional)<input name="endpoint_host" placeholder="vpn.remote.example"></label>
+                <label>UDP-Port<input name="endpoint_port" type="number" value="51820" min="1" max="65535" required></label>
+                <label>Keepalive (Sek.)<input name="keepalive" type="number" value="25" min="0" max="120" required></label>
+                <label class="checkbox-line"><input name="enabled" type="checkbox" checked> Im Export berücksichtigen</label>
+                <button id="vpnSiteSave" type="submit" class="btn primary">Standort speichern</button>
+                <button type="button" class="btn outline" id="vpnResetSite">Zurücksetzen</button>
+              </form>
+            </div>
+            <div class="panel vpn-admin-only"><h2>Privates Standortnetz hinzufügen</h2>
+              <form id="vpnRouteForm" class="vpn-form-2"><label class="span-all">Standort<select id="vpnRouteSite" name="site_id" required></select></label>
+                <label class="span-all">Remote-Netz / CIDR<input name="cidr" required placeholder="192.168.20.0/24"></label>
+                <button class="btn primary" type="submit">Private Route hinzufügen</button>
+              </form>
+              <div class="info-bar">Nur private RFC1918-Netze; überschneidende Routen werden abgelehnt. Das Anlegen einer Route verändert keine Betriebssystem-Routingtabelle.</div>
+            </div>
+            <div class="panel vpn-admin-only"><h2>Neue VPN-Domain zuordnen</h2>
+              <p class="vpn-muted">Erzeugt eine neue ProxyCircuit-Domain <strong>deaktiviert</strong>, bis die VPN-Verbindung funktioniert und ein passendes Zertifikat zugewiesen ist.</p>
+              <form id="vpnNewDomainForm" class="vpn-form-2"><label>Standort<select id="vpnNewSite" name="site_id" required></select></label>
+                <label>Remote-Netz<select id="vpnNewRoute" name="route_id" required></select></label>
+                <label class="span-all">Öffentliche Domain<input name="domain" required placeholder="app.example.de"></label>
+                <label>Ziel-IP im entfernten LAN<input name="target_ip" required placeholder="192.168.20.10"></label>
+                <label>Zielport<input type="number" name="target_port" min="1" max="65535" value="8080" required></label>
+                <label class="span-all">Backend-Protokoll<select name="protocol"><option value="http">HTTP</option><option value="https">HTTPS</option></select></label>
+                <button class="btn primary" type="submit">VPN-Domain deaktiviert anlegen</button></form>
+            </div>
+            <div class="panel vpn-admin-only"><h2>Bestehende Proxy-Domain mit VPN verbinden</h2><form id="vpnBindForm" class="vpn-form-2">
+                <label class="span-all">Bestehende Domain<select name="host_id" id="vpnExistingHost" required></select></label>
+                <label>Remote-Standort<select name="site_id" id="vpnBindSite" required></select></label>
+                <label>Route<select name="route_id" id="vpnBindRoute" required></select></label>
+                <button class="btn primary" type="submit">VPN-Bindung speichern</button></form>
+              <p class="vpn-muted">Die eingetragene Backend-IP muss bereits in der ausgewählten VPN-Route liegen. Bestehende Host-Regeln bleiben unverändert.</p>
+            </div>
+            <div class="panel"><h2>Gateway-Konfiguration exportieren</h2><p>Der Export enthält nur öffentliche WireGuard-Schlüssel, Tunnel-Adressen und Routen. Keine privaten Schlüssel und keine automatische Aktivierung.</p>
+              <div class="btn-group vpn-admin-only"><button class="btn outline" id="vpnPreview" type="button">WireGuard-Vorschau</button><button class="btn primary" id="vpnExport" type="button">Gateway-Plan JSON exportieren</button></div>
+              <pre class="vpn-code" id="vpnPreviewText">Noch keine Vorschau geladen.</pre><div class="info-bar">Gateway-Installation nur durch berechtigte Administratoren außerhalb dieser Oberfläche. Anleitung unter docs/WIREGUARD-VPN.md.</div>
+            </div>
+          </div>
+          <div class="panel vpn-sites-panel"><div class="panel-heading"><div><h2>VPN-Standorte und private Routen</h2><p>Konfigurierte Gateways – kein gemessener Online-Status</p></div><span class="vpn-muted">Kein Live-Status · keine aktive Verbindung behauptet</span></div><div class="vpn-site-list" id="vpnSites"></div></div>
         </section>
         <section class="view hidden" id="view-utilities">
           <div class="page-title"><div><div class="eyebrow accent">NETZWERK · DIAGNOSE</div><h1>Netzwerk-Werkzeuge</h1><p>CIDR-Rechner, lokale Suche, Wake-on-LAN und Forward-Proxy-Debugging.</p></div></div>
           <div class="utility-grid">
             <div class="panel"><h2>CIDR / IP-Konverter</h2><p>IPv4 und IPv6, Netzmaske, Netzwerk und Hostbereich.</p>
-              <form id="cidrForm"><label>Adresse oder Netz<input name="cidr" value="10.0.0.0/24" required maxlength="80" placeholder="192.168.1.0/24"></label><button type="submit" class="btn primary">Berechnen</button></form>
+              <form id="cidrForm"><label>Adresse oder Netz<input name="cidr" value="192.168.10.0/24" required maxlength="80" placeholder="192.168.1.0/24"></label><button type="submit" class="btn primary">Berechnen</button></form>
               <pre class="utility-output" id="cidrOutput" aria-live="polite">Bereit.</pre>
             </div>
             <div class="panel admin-utility"><h2>IP-Scanner</h2><p>Privates Netz bis 256 Adressen; Erreichbarkeit per TCP.</p>
-              <form id="ipScanForm"><label>IPv4-Netz (maximal /24)<input name="cidr" value="10.0.0.0/24" required></label><label>TCP-Probeports, max. 6<input name="ports" value="22,80,443" required></label><button type="submit" class="btn primary">IP-Adressen scannen</button></form>
+              <form id="ipScanForm"><label>IPv4-Netz (maximal /24)<input name="cidr" value="192.168.10.0/24" required></label><label>TCP-Probeports, max. 6<input name="ports" value="22,80,443" required></label><button type="submit" class="btn primary">IP-Adressen scannen</button></form>
               <pre class="utility-output" id="ipScanOutput" aria-live="polite">Bereit.</pre>
             </div>
             <div class="panel admin-utility"><h2>Port-Scanner</h2><p>Nur eine private IPv4-Adresse, bis 128 TCP-Ports pro Lauf.</p>
-              <form id="portScanForm"><label>Ziel-IP<input name="host" value="10.0.0.1" required></label><label>Ports (z. B. 22,80,443,8006,9443)<input name="ports" value="22,80,443,8006,9443" required></label><button type="submit" class="btn primary">Ports prüfen</button></form>
+              <form id="portScanForm"><label>Ziel-IP<input name="host" value="192.168.10.1" required></label><label>Ports (z. B. 22,80,443,8006,9443)<input name="ports" value="22,80,443,8006,9443" required></label><button type="submit" class="btn primary">Ports prüfen</button></form>
               <pre class="utility-output" id="portScanOutput" aria-live="polite">Bereit.</pre>
             </div>
             <div class="panel admin-utility"><h2>mDNS-Scanner</h2><p>Entdeckt Multicast-Dienste und Gerätenamen im lokalen Segment (UDP 5353).</p>
@@ -175,14 +277,14 @@
               <pre class="utility-output" id="wolOutput" aria-live="polite">Bereit.</pre>
             </div>
             <div class="panel admin-utility"><h2>Debug Forward Proxy</h2><p>HTTP-Proxy/CONNECT gegen eine bereits konfigurierte Domain testen, ohne fremde URLs abzurufen.</p>
-              <form id="forwardProxyForm"><div class="utility-inline"><label>Proxy-IP im LAN<input name="proxy_ip" value="10.0.0.1" required></label><label>Proxy-Port<input type="number" name="proxy_port" min="1" max="65535" value="3128" required></label></div><label>Test-Zieldomain aus ProxyCircuit<select id="forwardHostId" name="host_id" required><option value="">Domains werden geladen …</option></select></label><button type="submit" class="btn primary">Forward Proxy testen</button></form>
+              <form id="forwardProxyForm"><div class="utility-inline"><label>Proxy-IP im LAN<input name="proxy_ip" value="192.168.10.1" required></label><label>Proxy-Port<input type="number" name="proxy_port" min="1" max="65535" value="3128" required></label></div><label>Test-Zieldomain aus ProxyCircuit<select id="forwardHostId" name="host_id" required><option value="">Domains werden geladen …</option></select></label><button type="submit" class="btn primary">Forward Proxy testen</button></form>
               <pre class="utility-output" id="forwardOutput" aria-live="polite">Bereit.</pre>
             </div>
           </div>
           <div class="info-bar">Aktive Netzwerktests sind nur für Administratoren verfügbar. Kein Internet-Scan: IPs und Proxy-Endpunkte müssen private IPv4-Adressen sein. Scan-Ergebnisse zeigen TCP-Verbindungen, keine garantierte Dienstfunktion.</div>
         </section>
         <section class="view hidden" id="view-webssh">
-          <div class="page-title"><div><div class="eyebrow accent">ADMINISTRATOR · GESCHÜTZT</div><h1>Web-SSH Terminal</h1><p>Direkte SSH-Verbindung von CT 150 zu einem privaten IPv4-Ziel über einen überprüften Hostschlüssel.</p></div></div>
+          <div class="page-title"><div><div class="eyebrow accent">ADMINISTRATOR · GESCHÜTZT</div><h1>Web-SSH Terminal</h1><p>Direkte SSH-Verbindung von dem ProxyCircuit-Container zu einem privaten IPv4-Ziel über einen überprüften Hostschlüssel.</p></div></div>
           <div class="panel ssh-panel">
             <form id="sshConnectForm" autocomplete="off">
               <div class="ssh-form-grid">

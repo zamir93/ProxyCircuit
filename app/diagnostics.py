@@ -16,7 +16,7 @@ import subprocess
 from pathlib import Path
 
 from .settings import NGINX_HTTP
-from .validation import HostInput
+from .validation import HostInput, clean_upstream_path
 
 
 def config_presence(domain: str, path=NGINX_HTTP):
@@ -109,7 +109,9 @@ def probe_upstream(row):
             context = ssl.create_default_context()
             sock = context.wrap_socket(sock, server_hostname=name)
         # GET, not HEAD: many Proxmox & other applications return 501 for HEAD.
-        request = ('GET / HTTP/1.1\r\nHost: ' + public_host + '\r\n'
+        # Probe the configured backend directory, not an unrelated document root.
+        backend_path = clean_upstream_path(row.get('upstream_path', '/'))
+        request = ('GET ' + backend_path + ' HTTP/1.1\r\nHost: ' + public_host + '\r\n'
                    'X-Forwarded-Proto: https\r\nConnection: close\r\n\r\n').encode('ascii')
         sock.sendall(request)
         line = b''
@@ -252,8 +254,9 @@ def inspect_backend_without_trust(row, timeout=3):
             context.check_hostname = False
             context.verify_mode = ssl.CERT_NONE
             with context.wrap_socket(raw, server_hostname=tls_name) as tls:
-                # GET /, no cookies and no follow redirects, maximum 16KB.
-                request = ('GET / HTTP/1.1\r\nHost: ' + public_host +
+                # GET the configured directory; no cookies or redirects, max 16KB.
+                backend_path = clean_upstream_path(row.get('upstream_path', '/'))
+                request = ('GET ' + backend_path + ' HTTP/1.1\r\nHost: ' + public_host +
                            '\r\nUser-Agent: ProxyCircuit-Diagnose/0.2.2\r\n'
                            'Accept: text/html\r\nConnection: close\r\n\r\n')
                 tls.sendall(request.encode('ascii'))
@@ -318,7 +321,7 @@ def diagnose_route(row):
     is_public = any(ipaddress.ip_address(ip).is_global for ip in dns['addresses'])
     upstream = probe_upstream(dict(row))
     active_config = inspect_nginx_upstream(host.domain)
-    expected_url = f'{host.upstream_scheme}://{host.upstream_host}:{host.upstream_port}'
+    expected_url = f'{host.upstream_scheme}://{host.upstream_host}:{host.upstream_port}' + (host.upstream_path if host.upstream_path != '/' else '')
     active_config['matches_database_upstream'] = (active_config['proxy_pass'] == expected_url) if active_config['proxy_pass'] else None
     guidance = []
     if active_config['matches_database_upstream'] is False:

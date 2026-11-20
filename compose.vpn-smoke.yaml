@@ -1,0 +1,28 @@
+# ProxyCircuit v0.2.5 Beta | Author: Mohammad Zamir Akbari | https://zamir.akbari.org
+# ISOLATED DOCKER SMOKE TEST. No WireGuard privileges, no public HTTP/HTTPS ports.
+services:
+  proxycircuit:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    image: proxycircuit:0.2.5-beta-smoke
+    container_name: proxycircuit-v025-smoke
+    restart: 'no'
+    ports:
+      - '127.0.0.1:19445:9443/tcp'
+    volumes:
+      - pc_v025_data:/var/lib/rpmgr
+      - pc_v025_admin_tls:/etc/rpmgr
+      - pc_v025_acme:/etc/letsencrypt
+      - pc_v025_acme_webroot:/var/www/rpmgr-acme
+      - pc_v025_fallback:/var/www/rpmgr-fallback
+      - pc_v025_nginx_logs:/var/log/nginx
+    security_opt:
+      - no-new-privileges:true
+volumes:
+  pc_v025_data:
+  pc_v025_admin_tls:
+  pc_v025_acme:
+  pc_v025_acme_webroot:
+  pc_v025_fallback:
+  pc_v025_nginx_logs:

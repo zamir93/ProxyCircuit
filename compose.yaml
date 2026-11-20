@@ -1,11 +1,11 @@
-# ProxyCircuit v0.2.3-beta | Docker Compose example for Linux
+# ProxyCircuit v0.2.5-beta | Docker Compose example for Linux
 # Author: Mohammad Zamir Akbari | https://zamir.akbari.org
 services:
   proxycircuit:
     build:
       context: .
       dockerfile: docker/Dockerfile
-    image: proxycircuit:0.2.3-beta
+    image: proxycircuit:0.2.5-beta
     container_name: proxycircuit
     restart: unless-stopped
     init: false # The image already uses tini as PID 1

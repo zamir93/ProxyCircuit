@@ -40,6 +40,33 @@ class APITest(unittest.TestCase):
         r=self.client.put('/api/hosts/'+uid,json={**d,'upstream_scheme':'https','upstream_tls_name':'proxycircuit.local','upstream_port':8088},headers={'X-CSRF-Token':self.csrf});self.assertEqual(r.status_code,200,r.text)
         r=self.client.get('/api/hosts');self.assertEqual(r.json()[0]['upstream_port'],8088);self.assertEqual(r.json()[0]['upstream_tls_name'],'proxycircuit.local')
         self.assertEqual(self.client.delete('/api/hosts/'+uid,headers={'X-CSRF-Token':self.csrf}).status_code,200)
+    def test_02_upstream_path_crud(self):
+        payload={'domain':'path.example.de','upstream_scheme':'http',
+                 'upstream_host':'10.0.0.3','upstream_port':80,
+                 'upstream_path':'lager_inventar_system'}
+        headers={'X-CSRF-Token':self.csrf}
+        response=self.client.post('/api/hosts',json=payload,headers=headers)
+        self.assertEqual(response.status_code,200,response.text)
+        uid=response.json()['result']
+        try:
+            hosts=self.client.get('/api/hosts').json()
+            row=next(r for r in hosts if r['id']==uid)
+            self.assertEqual(row['upstream_path'],'/lager_inventar_system/')
+            changed=dict(payload,upstream_path='/andere-app/')
+            response=self.client.put('/api/hosts/'+uid,json=changed,headers=headers)
+            self.assertEqual(response.status_code,200,response.text)
+            row=next(r for r in self.client.get('/api/hosts').json() if r['id']==uid)
+            self.assertEqual(row['upstream_path'],'/andere-app/')
+            response=self.client.put('/api/hosts/'+uid,
+                                     json=dict(payload,upstream_path='/../../etc/passwd'),
+                                     headers=headers)
+            self.assertEqual(response.status_code,422,response.text)
+            row=next(r for r in self.client.get('/api/hosts').json() if r['id']==uid)
+            self.assertEqual(row['upstream_path'],'/andere-app/')
+        finally:
+            response=self.client.delete('/api/hosts/'+uid,headers=headers)
+            self.assertEqual(response.status_code,200,response.text)
+
     def test_03_stream_crud(self):
         d={'label':'SSH','protocol':'tcp','listen_port':2222,'target_host':'10.0.0.50','target_port':22}
         r=self.client.post('/api/streams',json=d,headers={'X-CSRF-Token':self.csrf});self.assertEqual(r.status_code,200,r.text)

@@ -35,7 +35,7 @@ renderHosts = function renderHostsGrouped(){
   const group=groupSelect?.value||'all';
   filteredHostList=all.filter(h=>{
     if(group!=='all'&&groupFor(h)!==group)return false;
-    if(query&&!`${h.domain} ${h.upstream_scheme} ${h.upstream_host} ${h.upstream_port} ${groupFor(h)}`.toLowerCase().includes(query))return false;
+    if(query&&!`${h.domain} ${h.upstream_scheme} ${h.upstream_host} ${h.upstream_port} ${h.upstream_path||'/'} ${groupFor(h)}`.toLowerCase().includes(query))return false;
     if(status==='on'&&!h.enabled || status==='off'&&h.enabled)return false;
     if(status==='tls'&&!h.certificate_id || status==='plain'&&h.certificate_id)return false;
     return true;
@@ -62,7 +62,7 @@ renderHosts = function renderHostsGrouped(){
     const canRenew=canWrite&&cert?.kind==='acme'&&cert?.status==='ready';
     parts.push(`<tr class="host-row"><td><input type="checkbox" data-host-id="${esc(h.id)}" aria-label="${esc(h.domain)} auswählen" ${chosenHosts.has(h.id)?'checked':''}></td>
       <td><div class="domain-cell"><strong>${esc(h.domain)}</strong>${isMainHost(h)?'<span class="domain-tag primary-domain">Hauptdomain</span>':'<span class="domain-tag">Subdomain</span>'}</div><small>${esc(groupName)} · ${esc(h.id)}</small></td>
-      <td><span class="mono">${esc(h.upstream_scheme)}://${esc(h.upstream_host)}:${Number(h.upstream_port)}</span>${h.upstream_tls_name?`<small>SNI: ${esc(h.upstream_tls_name)}</small>`:''}</td>
+      <td><span class="mono">${esc(h.upstream_scheme)}://${esc(h.upstream_host)}:${Number(h.upstream_port)}${esc(h.upstream_path&&h.upstream_path!=='/'?h.upstream_path:'')}</span>${h.upstream_tls_name?`<small>SNI: ${esc(h.upstream_tls_name)}</small>`:''}</td>
       <td>${h.certificate_id?'<span class="status">🔒 HTTPS</span>':'<span class="status pending">HTTP</span>'}${cert?.expires_at?`<small>bis ${fmtDate(cert.expires_at)}</small>`:''}</td>
       <td>${statusHTML(h.enabled)}</td>
       <td class="row-actions"><button class="mini-button" data-action="diagnoseHost" data-id="${esc(h.id)}">Vollanalyse</button>${canWrite?`<button class="mini-button" data-action="editHost" data-id="${esc(h.id)}">Bearbeiten</button>${canRenew?`<button class="mini-button" data-feature="renewCert" data-id="${esc(cert.id)}">SSL erneuern</button>`:''}<button class="mini-button red" data-action="deleteHost" data-id="${esc(h.id)}">Löschen</button>`:''}</td></tr>`);

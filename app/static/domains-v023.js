@@ -33,7 +33,7 @@ function pcRenderHostTiles() {
   const sorted=[...filteredHostList].sort((a,b)=>a.domain.localeCompare(b.domain,'de'));
   $('#hostTileGrid').innerHTML=sorted.map(h=> {
     const category=groupFor(h);
-    const target=`${h.upstream_scheme}://${h.upstream_host}:${Number(h.upstream_port)}`;
+    const target=`${h.upstream_scheme}://${h.upstream_host}:${Number(h.upstream_port)}${h.upstream_path&&h.upstream_path!=='/'?h.upstream_path:''}`;
     return `<article class="domain-tile ${h.enabled?'':'is-disabled'}">
       <div class="domain-tile-top"><div><div class="domain-tile-name">${esc(h.domain)}</div><small class="domain-tile-category">${esc(category)}</small></div>
       ${canWrite?`<input class="domain-tile-check" type="checkbox" data-tile-host-id="${esc(h.id)}" aria-label="${esc(h.domain)} ausw\u00e4hlen" ${chosenHosts.has(h.id)?'checked':''}>`:''}</div>

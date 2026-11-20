@@ -106,7 +106,7 @@ ProtectSystem=strict
 ProtectHome=true
 ReadWritePaths=/var/lib/rpmgr
 CapabilityBoundingSet=
-RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
 [Install]
 WantedBy=multi-user.target
 UNIT
@@ -126,7 +126,7 @@ UMask=0027
 PrivateTmp=true
 ProtectHome=true
 ProtectSystem=strict
-ReadWritePaths=/etc/nginx /var/lib/rpmgr /var/www/rpmgr-acme /var/www/rpmgr-fallback /etc/letsencrypt /var/lib/letsencrypt /var/log/letsencrypt /var/log/nginx /var/cache/nginx /run
+ReadWritePaths=/etc/nginx /var/lib/nginx /var/lib/rpmgr /var/www/rpmgr-acme /var/www/rpmgr-fallback /etc/letsencrypt /var/lib/letsencrypt /var/log/letsencrypt /var/log/nginx /var/cache/nginx /run
 [Install]
 WantedBy=multi-user.target
 UNIT

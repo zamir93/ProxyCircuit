@@ -287,7 +287,7 @@ def load_manifest(path: Path):
 
 def target_db(path: Path):
     if not path.is_file():
-        raise RuntimeError('ProxyCircuit database missing; run inside CT 150, not on pve host')
+        raise RuntimeError('ProxyCircuit database missing; run inside dem ProxyCircuit-Container, not on pve host')
     con = read_only_db(path)
     try:
         names = {r['name'] for r in con.execute('PRAGMA table_info(hosts)')}
@@ -405,7 +405,7 @@ def snapshot(db: Path, backup: Path):
 def stage_import(items, certs_dir: Path | None, dest_db: Path, cert_dest: Path, backup_dir: Path):
     require_root()
     if not Path('/opt/rpmgr/.rpmgr-installed').exists() and dest_db == Path('/var/lib/rpmgr/rpmgr.sqlite3'):
-        raise RuntimeError('Not installed on this machine: run inside ProxyCircuit CT 150')
+        raise RuntimeError('Not installed on this machine: run inside ProxyCircuit dem ProxyCircuit-Container')
     private_dir(backup_dir)
     backup = backup_dir / ('pre-npm-stage-' + datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ') + '-' + uuid.uuid4().hex[:8] + '.sqlite3')
     snapshot(dest_db, backup)

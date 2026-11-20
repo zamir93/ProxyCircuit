@@ -10,7 +10,7 @@ from app.main import validate_manual_pem
 
 
 ROW = {
-    'domain':'eurotube.afghanhost.de', 'upstream_scheme':'http',
+    'domain':'service.example.org', 'upstream_scheme':'http',
     'upstream_host':'192.168.50.236', 'upstream_port':80,
     'websocket':1, 'force_https':0, 'certificate_id':'cert-id', 'enabled':1,
 }
@@ -19,18 +19,18 @@ class DiagnosticsTest(unittest.TestCase):
     def test_01_config_presence(self):
         with tempfile.TemporaryDirectory() as td:
             p = Path(td)/'nginx.conf'
-            p.write_text('# HTTP host: eurotube.afghanhost.de\n'
-                         'server { server_name eurotube.afghanhost.de; }\n'
-                         '# HTTPS host: eurotube.afghanhost.de\n'
+            p.write_text('# HTTP host: service.example.org\n'
+                         'server { server_name service.example.org; }\n'
+                         '# HTTPS host: service.example.org\n'
                          'server { listen 443 ssl; }\n')
-            r = diagnostics.config_presence('eurotube.afghanhost.de', path=p)
+            r = diagnostics.config_presence('service.example.org', path=p)
             self.assertTrue(r['http'])
             self.assertTrue(r['https'])
-            self.assertFalse(diagnostics.config_presence('other.afghanhost.de', path=p)['https'])
+            self.assertFalse(diagnostics.config_presence('other.example.org', path=p)['https'])
 
     def test_02_missing_conf_is_not_ok(self):
         with tempfile.TemporaryDirectory() as td:
-            r = diagnostics.config_presence('eurotube.afghanhost.de', path=Path(td)/'not-present')
+            r = diagnostics.config_presence('service.example.org', path=Path(td)/'not-present')
             self.assertFalse(r['readable'])
             self.assertFalse(r['https'])
 
@@ -55,7 +55,7 @@ class DiagnosticsTest(unittest.TestCase):
 
     def test_05_pem_bad_key_gives_specific_error(self):
         with self.assertRaises(HTTPException) as ctx:
-            validate_manual_pem('eurotube.afghanhost.de', 'not a pem', 'not a key')
+            validate_manual_pem('service.example.org', 'not a pem', 'not a key')
         self.assertEqual(ctx.exception.status_code, 422)
 
     def test_06_ui_diagnostic_action_is_wired(self):

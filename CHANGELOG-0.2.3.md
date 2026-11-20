@@ -30,7 +30,7 @@ Autor: Mohammad Zamir Akbari | https://zamir.akbari.org
 
 ## Installation
 
-Nur im bestehenden ProxyCircuit LXC CT 150, nach dem Hochladen ins Verzeichnis `/root`:
+Nur im bestehenden ProxyCircuit LXC dem ProxyCircuit-Container, nach dem Hochladen ins Verzeichnis `/root`:
 
 ```bash
 cd /root

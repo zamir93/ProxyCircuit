@@ -1,4 +1,4 @@
-# ProxyCircuit v0.2.3-beta - Docker example (Debian 13)
+# ProxyCircuit v0.2.6-beta - Docker example (Debian 13)
 # Author: Mohammad Zamir Akbari | https://zamir.akbari.org
 # Copyright (c) 2026 Mohammad Zamir Akbari. All rights reserved.
 FROM debian:13-slim

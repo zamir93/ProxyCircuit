@@ -1,0 +1,42 @@
+/* ProxyCircuit VPN v0.2.5 | Author: Mohammad Zamir Akbari | https://zamir.akbari.org */
+.vpn-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:0 0 18px}
+.vpn-summary .metric{min-height:110px;padding:17px 19px}
+.vpn-summary .metric-num{font-size:26px}
+.vpn-forms{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:17px}
+.vpn-forms .panel{margin-bottom:0}
+.vpn-forms .panel h2{font-size:17px;margin:0 0 12px}
+.vpn-form-2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.vpn-form-2>.span-all{grid-column:span 2}
+.vpn-form-2 label{margin-bottom:7px;min-width:0}
+.vpn-form-2 button{grid-column:span 2}
+.vpn-status-chip{color:#ffd494;background:#493a25;display:inline-block;font-size:11px;border-radius:14px;padding:5px 8px;margin:3px 0 13px}
+.vpn-site-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin-top:12px}
+.vpn-site{background:#112139;border:1px solid #314860;border-radius:13px;padding:18px;min-width:0}
+.vpn-site h3{font-size:15px;margin-bottom:8px;overflow-wrap:anywhere}
+.vpn-site p{font-size:12px;line-height:1.6;margin:4px 0 10px;overflow-wrap:anywhere}
+.vpn-site .mini-button{margin:5px 7px 0 0}
+.vpn-code{min-height:135px;white-space:pre-wrap;overflow-wrap:anywhere;background:#091729;border:1px solid #304258;border-radius:12px;padding:15px;font-size:12px;line-height:1.65;color:#a4ddca;max-height:400px;overflow:auto}
+.vpn-forms .vpn-wide{grid-column:span 2}
+.vpn-muted{color:#879caf;font-size:11px;line-height:1.7}
+.vpn-alert{background:#272f3e;border:1px solid #6a5b42;padding:13px 15px;border-radius:10px;color:#ead8ba;font-size:12px;line-height:1.65;margin-bottom:18px}
+@media(max-width:1000px){.vpn-forms,.vpn-summary{grid-template-columns:1fr 1fr}.vpn-forms .vpn-wide{grid-column:span 2}}
+@media(max-width:760px){.vpn-forms,.vpn-summary,.vpn-form-2{grid-template-columns:1fr}.vpn-forms .vpn-wide,.vpn-form-2>.span-all,.vpn-form-2 button{grid-column:span 1}}
+
+.vpn-sites-panel{margin-top:20px}
+
+/* v0.2.5: conservative readiness review */
+.vpn-preflight-panel{margin-bottom:18px}
+.vpn-preflight-panel .panel-heading{margin-bottom:12px}
+.vpn-preflight-layout{display:grid;grid-template-columns:minmax(220px,1fr) minmax(0,2fr);gap:18px;margin-bottom:15px}
+.vpn-preflight-layout form,.vpn-preflight-result{min-width:0}
+.vpn-preflight-layout label{display:block;margin-bottom:8px}
+.vpn-preflight-layout textarea{width:100%;min-height:104px;resize:vertical;font:13px/1.5 ui-monospace,Consolas,monospace}
+.vpn-preflight-layout .btn-group{display:flex;flex-wrap:wrap;gap:8px}
+.vpn-preflight-issues{display:grid;gap:7px;max-height:240px;overflow:auto;margin-top:10px}
+.vpn-check{padding:10px 12px;display:flex;gap:12px;align-items:baseline;background:#111e31;border:1px solid #334961;border-radius:9px;color:#c7d8ed;font-size:12px;line-height:1.5}
+.vpn-check strong{min-width:66px;flex-shrink:0}
+.vpn-check-blocker{border-color:#a36565}.vpn-check-blocker strong{color:#ffabab}
+.vpn-check-warning{border-color:#836b45}.vpn-check-warning strong{color:#ffd18b}
+.vpn-check-info{border-color:#355c66}.vpn-check-info strong{color:#8cebe2}
+.vpn-preflight-ok{background:#174b49;color:#a6ffef}
+@media(max-width:760px){.vpn-preflight-layout{grid-template-columns:1fr}.vpn-check{flex-wrap:wrap}.vpn-preflight-layout form button{width:100%}}

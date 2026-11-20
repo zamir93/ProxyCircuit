@@ -73,8 +73,14 @@ class ValidationTest(unittest.TestCase):
                 '-keyout',str(key),'-out',str(cert),'-subj','/CN=localhost'],
                 check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
             rendered=render_http([],[]).replace('/etc/rpmgr/admin.crt',str(cert)).replace('/etc/rpmgr/admin.key',str(key))
-            rendered = rendered.replace('listen 80 default_server;', 'listen 127.0.0.1:18080 default_server;')
-            rendered = rendered.replace('listen 443 ssl default_server;', 'listen 127.0.0.1:18443 ssl default_server;')
+            import socket
+            def free_port():
+                with socket.socket() as sock:
+                    sock.bind(('127.0.0.1', 0))
+                    return sock.getsockname()[1]
+            rendered = rendered.replace('listen 80 default_server;', f'listen 127.0.0.1:{free_port()} default_server;')
+            rendered = rendered.replace('listen 443 ssl default_server;', f'listen 127.0.0.1:{free_port()} ssl default_server;')
+            rendered = rendered.replace('listen 127.0.0.1:18081;', f'listen 127.0.0.1:{free_port()};')
             h.write_text(rendered);s.write_text(render_stream([]))
             nginx=f'''worker_processes 1;
 pid {root}/nginx.pid;

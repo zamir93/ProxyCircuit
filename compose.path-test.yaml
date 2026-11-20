@@ -1,0 +1,28 @@
+# ProxyCircuit v0.2.5 Path Beta | Author: Mohammad Zamir Akbari | https://zamir.akbari.org
+# Isolierter LAN-Test auf CT135 (192.0.2.80); kein Zugriff auf TeamSpeak oder laufende ProxyCircuit-Daten.
+services:
+  proxycircuit:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    image: proxycircuit:0.2.5-beta-path-test
+    container_name: proxycircuit-v025-path-test
+    restart: unless-stopped
+    ports:
+      - "192.0.2.80:9446:9443/tcp"
+    volumes:
+      - pc_path_data:/var/lib/rpmgr
+      - pc_path_admin_tls:/etc/rpmgr
+      - pc_path_acme:/etc/letsencrypt
+      - pc_path_acme_webroot:/var/www/rpmgr-acme
+      - pc_path_fallback:/var/www/rpmgr-fallback
+      - pc_path_nginx_logs:/var/log/nginx
+    security_opt:
+      - no-new-privileges:true
+volumes:
+  pc_path_data:
+  pc_path_admin_tls:
+  pc_path_acme:
+  pc_path_acme_webroot:
+  pc_path_fallback:
+  pc_path_nginx_logs:

@@ -73,15 +73,103 @@ def login(data: LoginInput, request: Request, response: Response):
     if len(old) >= 8:
         raise HTTPException(429, 'Zu viele Anmeldeversuche. In 15 Minuten erneut probieren')
     con = connect()
-    admin = con.execute('SELECT password_hash,role,active FROM admins WHERE username=?', (data.username,)).fetchone()
-    con.close()
-    if not admin or not admin['active'] or not verify_password(data.password, admin['password_hash']):
-        login_fails[client].append(time.time())
-        raise HTTPException(401, 'Benutzername oder Passwort falsch')
+    try:
+        admin = con.execute('SELECT password_hash,role,active FROM admins WHERE username=?', (data.username,)).fetchone()
+        if not admin or not admin['active'] or not verify_password(data.password, admin['password_hash']):
+            login_fails[client].append(time.time())
+            raise HTTPException(401, 'Benutzername oder Passwort falsch')
+        mfa_row=con.execute('SELECT secret,active,last_counter FROM user_mfa WHERE username=?', (data.username,)).fetchone()
+        if mfa_row and mfa_row['active']:
+            from .mfa import valid_counter
+            counter=valid_counter(mfa_row['secret'],data.otp or '',last_counter=mfa_row['last_counter'])
+            if counter is None:
+                login_fails[client].append(time.time())
+                raise HTTPException(401, 'Benutzername, Passwort oder Einmalcode falsch')
+            updated=con.execute('UPDATE user_mfa SET last_counter=? WHERE username=? AND last_counter<?',
+                                (counter,data.username,counter))
+            if not updated.rowcount:
+                raise HTTPException(401, 'Einmalcode bereits verwendet')
+            con.commit()
+    finally:
+        con.close()
     login_fails.pop(client, None)
     token, csrf = new_session(data.username)
     response.set_cookie(COOKIE, token, max_age=SESSION_TTL, secure=True, httponly=True, samesite='strict', path='/')
     return {'username': data.username, 'role': admin['role'], 'csrf': csrf}
+
+class TOTPCodeInput(BaseModel):
+    code: str
+
+
+@app.get('/api/security/mfa')
+def mfa_status(session=Depends(require_admin)):
+    con=connect()
+    try:
+        row=con.execute('SELECT active,pending_until FROM user_mfa WHERE username=?',(session['username'],)).fetchone()
+        return {'enabled':bool(row['active']) if row else False,
+                'pending':bool(row and not row['active'] and row['pending_until']>int(time.time()))}
+    finally:
+        con.close()
+
+
+@app.post('/api/security/mfa/setup')
+def mfa_setup(session=Depends(require_admin)):
+    from .mfa import new_secret,uri
+    secret=new_secret()
+    con=connect()
+    try:
+        row=con.execute('SELECT active FROM user_mfa WHERE username=?',(session['username'],)).fetchone()
+        if row and row['active']:
+            raise HTTPException(409,'MFA ist bereits aktiviert; zuerst mit Einmalcode deaktivieren')
+        con.execute('''INSERT INTO user_mfa(username,secret,active,pending_until,last_counter)
+                       VALUES(?,?,0,?,-1)
+                       ON CONFLICT(username) DO UPDATE SET secret=excluded.secret,active=0,
+                       pending_until=excluded.pending_until,last_counter=-1''',
+                    (session['username'],secret,int(time.time())+600))
+        audit(con,session['username'],'mfa.setup','MFA-Einrichtung gestartet')
+        con.commit()
+        return {'secret':secret,'otpauth_uri':uri(session['username'],secret),
+                'warning':'Geheimnis nur einmal anzeigen; danach mit Einmalcode bestaetigen (10 Minuten).'}
+    finally:con.close()
+
+
+@app.post('/api/security/mfa/confirm')
+def mfa_confirm(data: TOTPCodeInput, session=Depends(require_admin)):
+    from .mfa import valid_counter
+    con=connect()
+    try:
+        con.execute('BEGIN IMMEDIATE')
+        row=con.execute('SELECT secret,active,pending_until,last_counter FROM user_mfa WHERE username=?',(session['username'],)).fetchone()
+        if not row or row['active'] or row['pending_until']<int(time.time()):
+            raise HTTPException(409,'MFA-Einrichtung abgelaufen oder bereits aktiviert')
+        counter=valid_counter(row['secret'],data.code,last_counter=row['last_counter'])
+        if counter is None:
+            raise HTTPException(422,'Ungueltiger Einmalcode')
+        con.execute('UPDATE user_mfa SET active=1,pending_until=0,last_counter=? WHERE username=?',
+                    (counter,session['username']))
+        audit(con,session['username'],'mfa.enabled','MFA aktiviert')
+        con.commit()
+        return {'enabled':True,'message':'MFA aktiviert. Bei naechster Anmeldung Einmalcode eingeben.'}
+    finally:con.close()
+
+
+@app.post('/api/security/mfa/disable')
+def mfa_disable(data: TOTPCodeInput, session=Depends(require_admin)):
+    from .mfa import valid_counter
+    con=connect()
+    try:
+        con.execute('BEGIN IMMEDIATE')
+        row=con.execute('SELECT secret,active,last_counter FROM user_mfa WHERE username=?',(session['username'],)).fetchone()
+        if not row or not row['active']:
+            raise HTTPException(409,'MFA ist nicht aktiviert')
+        if valid_counter(row['secret'],data.code,last_counter=row['last_counter']) is None:
+            raise HTTPException(422,'Ungueltiger Einmalcode')
+        con.execute('DELETE FROM user_mfa WHERE username=?',(session['username'],))
+        audit(con,session['username'],'mfa.disabled','MFA deaktiviert')
+        con.commit()
+        return {'enabled':False}
+    finally:con.close()
+
 
 @app.get('/api/me')
 def me(request: Request):
@@ -133,6 +221,8 @@ async def transactional_write(actor, action, description, fn, deploy=True):
                 render_http(asdicts(con.execute('SELECT * FROM hosts')),
                             asdicts(con.execute('SELECT * FROM certificates')))
                 render_stream(asdicts(con.execute('SELECT * FROM streams')))
+                from .port_binding import assert_bindings
+                assert_bindings(asdicts(con.execute('SELECT * FROM streams')), sockets=[])
             audit(con, actor, action, description)
             con.commit()
         except ValueError as exc:
@@ -174,9 +264,9 @@ async def add_host(payload: HostInput, session=Depends(require_editor)):
             raise HTTPException(409, 'Domain existiert bereits')
         ensure_cert(con, payload.certificate_id, payload.domain)
         con.execute('''INSERT INTO hosts(id,domain,upstream_scheme,upstream_host,upstream_port,upstream_tls_name,
-                     websocket,force_https,certificate_id,category,upstream_host_header,enabled) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)''',
+                     websocket,force_https,certificate_id,category,upstream_host_header,upstream_path,enabled) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)''',
                     (uid, payload.domain, payload.upstream_scheme, payload.upstream_host, payload.upstream_port,
-                     payload.upstream_tls_name, int(payload.websocket), int(payload.force_https), payload.certificate_id, payload.category, payload.upstream_host_header, int(payload.enabled)))
+                     payload.upstream_tls_name, int(payload.websocket), int(payload.force_https), payload.certificate_id, payload.category, payload.upstream_host_header, payload.upstream_path, int(payload.enabled)))
         return uid
     return await transactional_write(session['username'], 'host.create', payload.domain, task)
 
@@ -188,10 +278,26 @@ async def update_host(uid: str, payload: HostInput, session=Depends(require_edit
         if con.execute('SELECT 1 FROM hosts WHERE domain=? AND id<>?', (payload.domain, uid)).fetchone():
             raise HTTPException(409, 'Domain existiert bereits')
         ensure_cert(con, payload.certificate_id, payload.domain)
+        # Preserve VPN route isolation if an existing VPN-bound host is edited.
+        bound = con.execute('''SELECT r.cidr,s.enabled AS site_enabled FROM vpn_domains v
+            JOIN vpn_routes r ON v.route_id=r.id JOIN vpn_sites s ON v.site_id=s.id
+            WHERE v.host_id=?''', (uid,)).fetchone()
+        if bound:
+            import ipaddress
+            from .vpn import private_ip
+            try:
+                ip = private_ip(payload.upstream_host)
+            except ValueError as exc:
+                raise HTTPException(422, 'VPN-Backend muss eine private IPv4-Adresse sein') from exc
+            net = ipaddress.ip_network(bound['cidr'])
+            if ip not in net or ip in (net.network_address, net.broadcast_address):
+                raise HTTPException(422, 'VPN-Backend liegt ausserhalb der zugeordneten Route')
+            if payload.enabled and not bound['site_enabled']:
+                raise HTTPException(422, 'VPN-Standort ist deaktiviert')
         con.execute('''UPDATE hosts SET domain=?,upstream_scheme=?,upstream_host=?,upstream_port=?,upstream_tls_name=?,
-                     websocket=?,force_https=?,certificate_id=?,category=?,upstream_host_header=?,enabled=? WHERE id=?''',
+                     websocket=?,force_https=?,certificate_id=?,category=?,upstream_host_header=?,upstream_path=?,enabled=? WHERE id=?''',
                     (payload.domain, payload.upstream_scheme, payload.upstream_host, payload.upstream_port,
-                     payload.upstream_tls_name, int(payload.websocket), int(payload.force_https), payload.certificate_id, payload.category, payload.upstream_host_header, int(payload.enabled), uid))
+                     payload.upstream_tls_name, int(payload.websocket), int(payload.force_https), payload.certificate_id, payload.category, payload.upstream_host_header, payload.upstream_path, int(payload.enabled), uid))
         return uid
     return await transactional_write(session['username'], 'host.update', payload.domain, task)
 
@@ -223,37 +329,104 @@ async def host_diagnostics(uid: str, session=Depends(require_session)):
 def streams(session=Depends(require_session)):
     return get_rows('streams')
 
+@app.get('/api/network/listen-addresses')
+def listen_addresses(session=Depends(require_session)):
+    from .port_binding import local_addresses
+    return {'addresses': local_addresses(), 'wildcards': [
+        {'address': '0.0.0.0', 'label': 'Alle IPv4-Interfaces'},
+        {'address': '::', 'label': 'Alle IPv6-Interfaces'}]}
+
+
+@app.get('/api/network/check-bind')
+def check_binding(protocol: str, listen_port: int = Query(ge=1,le=65535),
+                  bind_ip: str='0.0.0.0', exclude_id: str='',
+                  session=Depends(require_session)):
+    """Read-only preview. The root worker repeats authoritative checks."""
+    from .port_binding import (local_addresses, find_live_conflicts, rules_conflicts,
+                               normalize_bind_ip, assert_assigned)
+    probe=StreamInput(label='Vorschau',protocol=protocol,listen_port=listen_port,
+                      bind_ip=bind_ip,target_host='127.0.0.1',target_port=1)
+    con=connect()
+    try:
+        existing=asdicts(con.execute('SELECT * FROM streams WHERE enabled=1 AND id<>?',(exclude_id,)))
+    finally:
+        con.close()
+    desired=probe.model_dump()
+    desired['id']='preview'
+    addresses=local_addresses()
+    warnings=[]
+    try:
+        assert_assigned(probe.bind_ip,addresses)
+    except ValueError as exc:
+        warnings.append(str(exc))
+    conflicts=rules_conflicts(existing+[desired])
+    sockets=find_live_conflicts([desired])
+    suggestions=[]
+    if conflicts or sockets['conflicts'] or warnings:
+        for candidate in addresses:
+            addr=candidate['address']
+            if candidate['loopback']:
+                continue
+            other=dict(desired,bind_ip=addr)
+            if not rules_conflicts(existing+[other]) and not find_live_conflicts([other])['conflicts']:
+                suggestions.append({'address':addr,'interface':candidate['interface']})
+    return {'ok':not (conflicts or sockets['conflicts'] or warnings),
+            'conflicts':conflicts+sockets['conflicts'],
+            'warnings':warnings+sockets['warnings'],
+            'available_candidates':suggestions[:20]}
+
+
 @app.post('/api/streams')
 async def add_stream(payload: StreamInput, session=Depends(require_editor)):
     uid = uuid.uuid4().hex[:16]
     def task(con):
-        if payload.protocol == 'tcp' and payload.listen_port in (80,443,18081,9443):
-            raise HTTPException(422, 'TCP-Port ist für Reverse Proxy, Status oder Admin-Panel reserviert')
-        if con.execute('SELECT 1 FROM streams WHERE protocol=? AND listen_port=?', (payload.protocol,payload.listen_port)).fetchone():
-            raise HTTPException(409, 'Dieser Port ist bereits vergeben')
-        con.execute('''INSERT INTO streams(id,label,protocol,listen_port,target_host,target_port,timeout_seconds,enabled)
-                       VALUES(?,?,?,?,?,?,?,?)''',
-                    (uid,payload.label,payload.protocol,payload.listen_port,payload.target_host,payload.target_port,
-                     payload.timeout_seconds,int(payload.enabled)))
+        from .port_binding import RESERVED_TCP
+        if payload.protocol == 'tcp' and payload.listen_port in RESERVED_TCP:
+            raise HTTPException(422, 'TCP-Port ist fuer Reverse Proxy, Status oder Admin-Panel reserviert')
+        if con.execute('SELECT 1 FROM streams WHERE protocol=? AND listen_port=? AND bind_ip=?',
+                       (payload.protocol,payload.listen_port,payload.bind_ip)).fetchone():
+            raise HTTPException(409, 'Dieser Port ist bereits auf dieser Bind-IP vergeben')
+        con.execute('''INSERT INTO streams(id,label,protocol,listen_port,bind_ip,target_host,target_port,timeout_seconds,enabled)
+                       VALUES(?,?,?,?,?,?,?,?,?)''',
+                    (uid,payload.label,payload.protocol,payload.listen_port,payload.bind_ip,payload.target_host,
+                     payload.target_port,payload.timeout_seconds,int(payload.enabled)))
         return uid
-    return await transactional_write(session['username'], 'stream.create', f'{payload.listen_port}/{payload.protocol}', task)
+    return await transactional_write(session['username'], 'stream.create',
+                                     f'{payload.bind_ip}:{payload.listen_port}/{payload.protocol}', task)
+
 
 @app.put('/api/streams/{uid}')
 async def update_stream(uid: str, payload: StreamInput, session=Depends(require_editor)):
     def task(con):
+        from .port_binding import RESERVED_TCP
         if not con.execute('SELECT 1 FROM streams WHERE id=?',(uid,)).fetchone():
             raise HTTPException(404, 'Portregel wurde nicht gefunden')
-        if payload.protocol == 'tcp' and payload.listen_port in (80,443,18081,9443):
-            raise HTTPException(422, 'TCP-Port ist für Reverse Proxy, Status oder Admin-Panel reserviert')
-        if con.execute('SELECT 1 FROM streams WHERE protocol=? AND listen_port=? AND id<>?',
-                       (payload.protocol,payload.listen_port,uid)).fetchone():
-            raise HTTPException(409, 'Dieser Port ist bereits vergeben')
-        con.execute('''UPDATE streams SET label=?,protocol=?,listen_port=?,target_host=?,target_port=?,
+        if payload.protocol == 'tcp' and payload.listen_port in RESERVED_TCP:
+            raise HTTPException(422, 'TCP-Port ist fuer Reverse Proxy, Status oder Admin-Panel reserviert')
+        if con.execute('SELECT 1 FROM streams WHERE protocol=? AND listen_port=? AND bind_ip=? AND id<>?',
+                       (payload.protocol,payload.listen_port,payload.bind_ip,uid)).fetchone():
+            raise HTTPException(409, 'Dieser Port ist bereits auf dieser Bind-IP vergeben')
+        con.execute('''UPDATE streams SET label=?,protocol=?,listen_port=?,bind_ip=?,target_host=?,target_port=?,
                        timeout_seconds=?,enabled=? WHERE id=?''',
-                    (payload.label,payload.protocol,payload.listen_port,payload.target_host,payload.target_port,
+                    (payload.label,payload.protocol,payload.listen_port,payload.bind_ip,payload.target_host,payload.target_port,
                      payload.timeout_seconds,int(payload.enabled),uid))
         return uid
-    return await transactional_write(session['username'], 'stream.update', f'{payload.listen_port}/{payload.protocol}', task)
+    return await transactional_write(session['username'], 'stream.update',
+                                     f'{payload.bind_ip}:{payload.listen_port}/{payload.protocol}', task)
+
+
+@app.get('/api/streams/{uid}/diagnostics')
+async def stream_diagnostics(uid: str, session=Depends(require_session)):
+    from .operational_diagnostics import diagnose_stream
+    con=connect()
+    try:
+        row=con.execute('SELECT * FROM streams WHERE id=?', (uid,)).fetchone()
+    finally:
+        con.close()
+    if not row:
+        raise HTTPException(404, 'Portregel nicht gefunden')
+    return await asyncio.wait_for(asyncio.to_thread(diagnose_stream,dict(row)), timeout=12)
+
 
 @app.delete('/api/streams/{uid}')
 async def delete_stream(uid: str, session=Depends(require_editor)):
@@ -372,6 +545,55 @@ def deployment(session=Depends(require_session)):
     except (OSError,ValueError) as exc:
         return {'state':'error','status':{'message':str(exc)}}
 
+@app.get('/api/operations/overview')
+def operations_overview(session=Depends(require_session)):
+    from .operational_diagnostics import operational_overview
+    return operational_overview()
+
+
+@app.get('/api/operations/history')
+def operations_history(session=Depends(require_session)):
+    con=connect()
+    try:
+        return asdicts(con.execute('SELECT * FROM deploy_history ORDER BY created_at DESC LIMIT 40'))
+    finally:
+        con.close()
+
+
+@app.get('/api/operations/history/{request_id}/diff')
+def operations_diff(request_id: str, session=Depends(require_admin)):
+    con=connect()
+    try:
+        row=con.execute('SELECT id,created_at,state,diff_excerpt FROM deploy_history WHERE id=?',(request_id,)).fetchone()
+    finally:
+        con.close()
+    if not row:
+        raise HTTPException(404,'Konfigurationsversion nicht gefunden')
+    return dict(row)
+
+
+@app.get('/api/operations/listeners')
+def operations_listeners(session=Depends(require_admin)):
+    from .port_binding import live_sockets
+    return {'listeners':live_sockets()[:500]}
+
+
+@app.get('/api/hosts/{uid}/verify')
+async def verify_host(uid: str, session=Depends(require_session)):
+    from .operational_diagnostics import inspect_served_tls
+    con=connect()
+    try:
+        row=con.execute('SELECT * FROM hosts WHERE id=?', (uid,)).fetchone()
+    finally:
+        con.close()
+    if not row:
+        raise HTTPException(404,'Domain nicht gefunden')
+    probe=await asyncio.to_thread(diagnose_route,dict(row))
+    probe['served_https']=(await asyncio.to_thread(inspect_served_tls,row['domain']) if row['certificate_id']
+                           else {'state':'no-certificate','note':'Diese Domain hat noch kein TLS-Zertifikat'})
+    return probe
+
+
 @app.get('/api/summary')
 def summary(session=Depends(require_session)):
     con=connect()
@@ -474,6 +696,9 @@ app.include_router(features_router)
 # LAN utilities, Web SSH and scanners (role protected).
 from .utilities import router as utilities_router
 app.include_router(utilities_router)
+
+from .vpn import router as vpn_router
+app.include_router(vpn_router)
 
 
 # Editable fallback page, persisted via SQLite. Administrative changes require CSRF.

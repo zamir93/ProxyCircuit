@@ -19,3 +19,12 @@
 
 /* Read-only route diagnostics, no inline styles and CSP compliant */
 .route-diagnostic{background:#081525;border:1px solid #2c4258;border-radius:9px;color:#abdcca;white-space:pre-wrap;overflow-wrap:anywhere;padding:17px;line-height:1.9;max-height:520px;overflow:auto;font-size:12px}
+
+/* Path routing input guidance (v0.2.3-compatible). */
+.path-helper-text{margin:-8px 0 4px;color:#8ea5be;font-size:11px;line-height:1.5}
+
+/* ProxyCircuit 0.2.6: deployment history and interface-selection UX */
+.deployment-history{display:grid;gap:8px;margin:12px 0 20px;max-height:340px;overflow:auto}
+.history-entry{border:1px solid #28455a;background:#0b192a;padding:12px 15px;border-radius:10px;font-size:12px;line-height:1.6}
+.history-entry small{display:block;color:#8da8b8;white-space:normal;overflow-wrap:anywhere}
+#streamBindIP{width:100%;max-width:100%}

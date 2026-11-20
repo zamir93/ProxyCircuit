@@ -1,4 +1,6 @@
-# Docker Compose – ProxyCircuit v0.2.3 Beta
+> **Neu v0.2.6-beta:** Zum ersten isolierten Test `compose.v026-smoke.yaml` mit eigenem Projekt `pc-v026-smoke` und Loopback-Admin-Port `19446` nutzen. `compose.vpn-smoke.yaml` ist das vorherige v0.2.5-Testprofil. Siehe [Updateanleitung](UPDATE-0.2.6.md). Bestehende Testcontainer bleiben unveraendert.
+
+# Docker Compose – ProxyCircuit v0.2.5 Beta
 
 **Experimentelles Docker-Beispiel für Linux Docker Engine + Docker Compose v2.** Ein Docker-End-to-End-Test war in der Build-Umgebung mangels Docker-Daemon **nicht** möglich. Zuerst auf einem separaten Testserver durchführen.
 
@@ -68,3 +70,6 @@ docker compose exec proxycircuit curl -ksS https://127.0.0.1:9443/api/version
 - Web-SSH, Scanner und Forward-Proxy nur in eigenen/autorisierten Netzen nutzen.
 - Zertifikate und SQLite-Datenbank nie ins Git-Repository übernehmen.
 - Vor Einsatz mit produktiven Domänen das Verhalten von ACME, WebSockets, UDP und TLS prüfen.
+
+
+**Für sichere Tests:** Statt dieses allgemeinen Compose-Profils bitte zunächst [`compose.vpn-smoke.yaml`](../compose.vpn-smoke.yaml) und die [v0.2.5-Testanleitung](VPN-PREFLIGHT-0.2.5.md) verwenden. Das Smoketest-Profil veröffentlicht keine Ports 80/443.

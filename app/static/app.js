@@ -7,7 +7,7 @@ const esc = (x) => String(x ?? '').replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&
 let csrf = '', currentView = 'dashboard', modalKind = '', editID = null;
 let data = {hosts: [],streams: [],certificates: [],audit:[],summary:null};
 let toastTimer = null;
-const titles = {dashboard:'Übersicht',hosts:'Proxy-Domains',streams:'TCP / UDP Ports',certificates:'SSL-Zertifikate',monitoring:'Monitoring & Logs',plugins:'Plugins',backups:'Backup & Export'};
+const titles = {dashboard:'Übersicht',hosts:'Proxy-Domains',streams:'TCP / UDP Ports',certificates:'SSL-Zertifikate',monitoring:'Diagnose & Monitoring',plugins:'Plugins',backups:'Backup & Export',vpn:'VPN-Standorte'};
 
 async function api(path, options={}) {
   const method = options.method || 'GET';
@@ -28,7 +28,7 @@ async function api(path, options={}) {
   return result;
 }
 function toast(message,error=false){const el=$('#toast');el.textContent=message;el.className='toast'+(error?' error':'');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.add('hidden'),5200);}
-function logoutVisual(){csrf='';window.PC_ROLE='';$('#shell').classList.add('hidden');$('#loginScreen').classList.remove('hidden');}
+function logoutVisual(){csrf='';if($('#mfaSecret'))$('#mfaSecret').textContent='';window.PC_ROLE='';$('#shell').classList.add('hidden');$('#loginScreen').classList.remove('hidden');}
 function loginVisual(user,role='viewer'){window.PC_ROLE=role;$('#usersNav')?.classList.toggle('hidden',role!=='admin');$('#rolePill').textContent=role==='admin'?'Administrator':role==='editor'?'Bearbeiter':'Leser';$('#loginScreen').classList.add('hidden');$('#shell').classList.remove('hidden');$('#avatar').textContent=(user||'A').slice(0,1).toUpperCase();}
 async function login(e) {
   e.preventDefault();
@@ -48,11 +48,12 @@ async function login(e) {
   try {
     const result = await api('/login', {
       method: 'POST',
-      body: JSON.stringify({username: fields.get('username'), password: fields.get('password')})
+      body: JSON.stringify({username: fields.get('username'), password: fields.get('password'), otp: (fields.get('otp')||'').trim()||null})
     });
     csrf = result.csrf;
     const passwordField = formElement.querySelector('input[name="password"]');
     if (passwordField) passwordField.value = '';
+    const otpField=formElement.querySelector('input[name="otp"]');if(otpField)otpField.value='';
     loginVisual(result.username,result.role);
   } catch (err) {
     error.textContent = err.message;
@@ -67,7 +68,7 @@ async function login(e) {
   }
 }
 async function logout(){try{await api('/logout',{method:'POST'});}catch{}logoutVisual();}
-function nav(view){currentView=view;$$('.view').forEach(el=>el.classList.toggle('hidden',el.id!=='view-'+view));$$('.nav-item[data-view]').forEach(el=>el.classList.toggle('active',el.dataset.view===view));$('#crumb').textContent=titles[view];if(view==='monitoring') refreshMonitoring();if(view==='plugins')refreshPlugins();if(view==='backups')refreshDeploy();}
+function nav(view){currentView=view;$$('.view').forEach(el=>el.classList.toggle('hidden',el.id!=='view-'+view));$$('.nav-item[data-view]').forEach(el=>el.classList.toggle('active',el.dataset.view===view));$('#crumb').textContent=titles[view];if(view==='monitoring') refreshMonitoring();if(view==='users'&&window.PC_ROLE==='admin')refreshMfa();if(view==='plugins')refreshPlugins();if(view==='backups')refreshDeploy();}
 function statusHTML(enabled){return `<span class="status ${enabled?'':'off'}">${enabled?'● Eingeschaltet':'● Ausgeschaltet'}</span>`;}
 function fmtDate(s){if(!s)return '–';let dt=new Date(s);return Number.isNaN(dt.getTime())?'–':dt.toLocaleDateString('de-DE');}
 function percent(v){return Math.min(100,Math.max(0,Number(v)||0));}
@@ -87,10 +88,13 @@ function renderDashboard(){
  $('#auditList').innerHTML=data.audit.length?data.audit.slice(0,5).map(a=>`<div class="audit-entry"><span class="audit-symbol">✓</span><div><strong>${esc(a.action)} · ${esc(a.description)}</strong><small>${esc(a.username)} · ${fmtDate(a.created_at)}</small></div></div>`).join(''):'<div class="empty">Noch keine Änderungen registriert.</div>';
 }
 function renderHosts(){
- $('#hostsRows').innerHTML=data.hosts.length?data.hosts.map(h=>`<tr><td><strong>${esc(h.domain)}</strong><small>Proxy-ID: ${esc(h.id)}</small></td><td><span class="mono">${esc(h.upstream_scheme)}://${esc(h.upstream_host)}:${Number(h.upstream_port)}</span></td><td>${h.certificate_id?'<span class="status">🔒 HTTPS</span>':'<span class="status pending">HTTP</span>'}<small>WebSocket: ${h.websocket?'Ja':'Nein'} · HTTPS-Zwang: ${h.force_https?'Ja':'Nein'}</small></td><td>${statusHTML(h.enabled)}</td><td><button class="mini-button" data-action="diagnoseHost" data-id="${esc(h.id)}">Vollanalyse</button><button class="mini-button" data-action="editHost" data-id="${esc(h.id)}">Bearbeiten</button><button class="mini-button red" data-action="deleteHost" data-id="${esc(h.id)}">Löschen</button></td></tr>`).join(''):'<tr><td colspan="5" class="empty">Noch keine Domains vorhanden. Über „Domain hinzufügen“ beginnen.</td></tr>';
+ $('#hostsRows').innerHTML=data.hosts.length?data.hosts.map(h=>`<tr><td><strong>${esc(h.domain)}</strong><small>Proxy-ID: ${esc(h.id)}</small></td><td><span class="mono">${esc(h.upstream_scheme)}://${esc(h.upstream_host)}:${Number(h.upstream_port)}${esc(h.upstream_path&&h.upstream_path!=='/'?h.upstream_path:'')}</span></td><td>${h.certificate_id?'<span class="status">🔒 HTTPS</span>':'<span class="status pending">HTTP</span>'}<small>WebSocket: ${h.websocket?'Ja':'Nein'} · HTTPS-Zwang: ${h.force_https?'Ja':'Nein'}</small></td><td>${statusHTML(h.enabled)}</td><td><button class="mini-button" data-action="diagnoseHost" data-id="${esc(h.id)}">Vollanalyse</button><button class="mini-button" data-action="editHost" data-id="${esc(h.id)}">Bearbeiten</button><button class="mini-button red" data-action="deleteHost" data-id="${esc(h.id)}">Löschen</button></td></tr>`).join(''):'<tr><td colspan="5" class="empty">Noch keine Domains vorhanden. Über „Domain hinzufügen“ beginnen.</td></tr>';
 }
 function renderStreams(){
- $('#streamRows').innerHTML=data.streams.length?data.streams.map(s=>`<tr><td><strong>${esc(s.label)}</strong><small>Timeout: ${Number(s.timeout_seconds)}s</small></td><td><span class="status ${s.protocol==='udp'?'pending':''}">${esc(s.protocol.toUpperCase())}</span></td><td><strong class="mono">${Number(s.listen_port)}</strong></td><td class="mono">${esc(s.target_host)}:${Number(s.target_port)}</td><td>${statusHTML(s.enabled)}</td><td><button class="mini-button" data-action="editStream" data-id="${esc(s.id)}">Bearbeiten</button><button class="mini-button red" data-action="deleteStream" data-id="${esc(s.id)}">Löschen</button></td></tr>`).join(''):'<tr><td colspan="6" class="empty">Noch keine Portregeln vorhanden.</td></tr>';
+ const needle=($('#streamSearch')?.value||'').toLowerCase().trim(), filter=$('#streamProtocolFilter')?.value||'';
+ const results=data.streams.filter(s=>(!filter||s.protocol===filter)&&(!needle||
+  [s.label,s.bind_ip||'0.0.0.0',s.listen_port,s.target_host,s.target_port].some(x=>String(x).toLowerCase().includes(needle))));
+ $('#streamRows').innerHTML=results.length?results.map(s=>`<tr><td><strong>${esc(s.label)}</strong><small>Timeout: ${Number(s.timeout_seconds)}s</small></td><td><span class="status ${s.protocol==='udp'?'pending':''}">${esc(s.protocol.toUpperCase())}</span></td><td><strong class="mono">${esc(s.bind_ip||'0.0.0.0')}:${Number(s.listen_port)}</strong></td><td class="mono">${esc(s.target_host)}:${Number(s.target_port)}</td><td>${statusHTML(s.enabled)}</td><td><button class="mini-button" data-action="diagnoseStream" data-id="${esc(s.id)}">Verbindung prüfen</button><button class="mini-button" data-action="editStream" data-id="${esc(s.id)}">Bearbeiten</button><button class="mini-button red" data-action="deleteStream" data-id="${esc(s.id)}">Löschen</button></td></tr>`).join(''):'<tr><td colspan="6" class="empty">Noch keine Portregeln vorhanden.</td></tr>';
 }
 function renderCerts(){
  $('#certRows').innerHTML=data.certificates.length?data.certificates.map(c=>`<tr><td><strong>${esc(c.domain)}</strong><small>${esc(c.label)}</small></td><td>${c.kind==='acme'?'Let\'s Encrypt':'PEM-Import'}</td><td>${fmtDate(c.expires_at)}</td><td><span class="status ${c.status==='ready'?'':c.status==='pending'?'pending':'error'}">${esc(c.status)}</span>${c.error?`<small title="${esc(c.error)}">${esc(c.error.slice(0,105))}</small>`:''}</td><td><button class="mini-button red" data-action="deleteCert" data-id="${esc(c.id)}">Löschen</button></td></tr>`).join(''):'<tr><td colspan="5" class="empty">Keine Zertifikate vorhanden. Ein Zertifikat importieren oder über HTTP-01 anfordern.</td></tr>';
@@ -119,6 +123,8 @@ function openModal(kind,id=null){
    html=`<div class="form-grid">${field('Domain / Subdomain','domain',h.domain||'','placeholder="app.example.de" required','span2')}
    ${selectField('Upstream-Protokoll','upstream_scheme',[['http','HTTP'],['https','HTTPS']],h.upstream_scheme||'http')}
    ${field('Ziel-IP / Hostname','upstream_host',h.upstream_host||'','placeholder="10.0.0.50" required')}
+   ${field('Zielpfad (optional)','upstream_path',h.upstream_path||'/','placeholder="/lager_inventar_system/" autocomplete="off"','span2')}
+   <p class="span2 path-helper-text">Beispiel: IP 10.0.0.3 und Zielpfad /lager_inventar_system/ – der Domain-Aufruf / wird auf diesen Ordner weitergeleitet.</p>
    ${field('TLS-Servername des HTTPS-Ziels (optional)','upstream_tls_name',h.upstream_tls_name||'','placeholder="proxycircuit.local"','span2')}
    ${field('Eigener Host-Header am Ziel (optional)','upstream_host_header',h.upstream_host_header||'','placeholder="z. B. keyhelp.internal"','span2')}
    ${field('Kategorie / Hauptgruppe (optional)','category',h.category||'','placeholder="z. B. AfghanHost"','span2')}
@@ -132,6 +138,9 @@ function openModal(kind,id=null){
    html=`<div class="form-grid">${field('Dienstname','label',s.label||'','placeholder="SSH / Datenbank / App" required','span2')}
    ${selectField('Protokoll','protocol',[['tcp','TCP'],['udp','UDP']],s.protocol||'tcp')}
    ${field('Externer Port am Proxy','listen_port',s.listen_port||2222,'type="number" min="1" max="65535" required')}
+   <label class="span2">Bind-IP / Lokale Listen-Adresse
+     <select name="bind_ip" id="streamBindIP" required><option value="${esc(s.bind_ip||'0.0.0.0')}">${esc(s.bind_ip||'0.0.0.0')} – aktuell</option></select>
+   </label><p class="span2 path-helper-text" id="streamBindInfo">Lese lokale Netzwerkschnittstellen ...</p>
    ${field('Ziel-IP / Hostname','target_host',s.target_host||'','placeholder="10.0.0.50" required')}
    ${field('Zielport','target_port',s.target_port||22,'type="number" min="1" max="65535" required')}
    ${field('Timeout (Sekunden)','timeout_seconds',s.timeout_seconds||300,'type="number" min="1" max="3600" required','span2')}
@@ -147,18 +156,19 @@ function openModal(kind,id=null){
    <label class="span2">Vollständige Zertifikatskette (PEM)<textarea name="fullchain_pem" required placeholder="-----BEGIN CERTIFICATE-----"></textarea></label>
    <label class="span2">Privater Schlüssel (PEM, unverschlüsselt)<textarea name="private_key_pem" required placeholder="-----BEGIN PRIVATE KEY-----"></textarea></label></div>`;
  }
- $('#modalTitle').textContent=title;$('#modalFields').innerHTML=html;$('#saveModal').textContent=btn;$('#modalForm').querySelector('input,select,textarea')?.focus();
+ $('#modalTitle').textContent=title;$('#modalFields').innerHTML=html;$('#saveModal').textContent=btn;if(kind==='stream')loadBindIPs();$('#modalForm').querySelector('input,select,textarea')?.focus();
 }
 function closeModal(){$('#modalOverlay').classList.add('hidden');$('#modalForm').reset();modalKind='';editID=null;}
 async function saveModal(event){
  event.preventDefault();const form=new FormData(event.currentTarget);let path='',method='POST',payload={};$('#modalError').textContent='';$('#saveModal').disabled=true;
  try{
   if(modalKind==='host'){
-    payload={domain:form.get('domain'),upstream_scheme:form.get('upstream_scheme'),upstream_host:form.get('upstream_host'),upstream_port:Number(form.get('upstream_port')),upstream_tls_name:(form.get('upstream_tls_name')||'').trim()||null,
+    payload={domain:form.get('domain'),upstream_scheme:form.get('upstream_scheme'),upstream_host:form.get('upstream_host'),upstream_port:Number(form.get('upstream_port')),upstream_path:(form.get('upstream_path')||'/').trim()||'/',upstream_tls_name:(form.get('upstream_tls_name')||'').trim()||null,
       websocket:form.has('websocket'),force_https:form.has('force_https'),certificate_id:form.get('certificate_id')||null,category:form.get('category')||'',upstream_host_header:(form.get('upstream_host_header')||'').trim()||null,enabled:form.has('enabled')};
+    if (payload.upstream_host.includes('/')) throw new Error('Ziel-IP / Hostname ohne Pfad eingeben. Bitte Zielpfad im separaten Feld eintragen.');
     path='/hosts'+(editID?'/'+editID:'');method=editID?'PUT':'POST';
   }else if(modalKind==='stream'){
-    payload={label:form.get('label'),protocol:form.get('protocol'),listen_port:Number(form.get('listen_port')),target_host:form.get('target_host'),
+    payload={label:form.get('label'),protocol:form.get('protocol'),listen_port:Number(form.get('listen_port')),bind_ip:form.get('bind_ip')||'0.0.0.0',target_host:form.get('target_host'),
       target_port:Number(form.get('target_port')),timeout_seconds:Number(form.get('timeout_seconds')),enabled:form.has('enabled')};
     path='/streams'+(editID?'/'+editID:'');method=editID?'PUT':'POST';
   }else if(modalKind==='acme'){payload={domain:form.get('domain'),email:form.get('email')};path='/certificates/issue';}
@@ -170,11 +180,71 @@ async function saveModal(event){
   await refreshAll();
  }catch(err){$('#modalError').textContent=err.message;}finally{$('#saveModal').disabled=false;}
 }
+async function refreshMfa(){
+ if(window.PC_ROLE!=='admin')return;
+ try{const r=await api('/security/mfa');
+  $('#mfaState').textContent=r.enabled?'MFA ist AKTIV. Bei jeder Anmeldung ist ein frischer Einmalcode erforderlich.':
+   (r.pending?'MFA-Einrichtung ausstehend (max. 10 Minuten).':'MFA ist noch nicht aktiviert.');
+  $('#mfaSetup').classList.toggle('hidden',r.enabled);
+  $('#mfaDisableForm').classList.toggle('hidden',!r.enabled);
+  if(r.enabled){$('#mfaSecret').textContent='';$('#mfaSecret').classList.add('hidden');$('#mfaConfirmForm').classList.add('hidden');}
+ }catch(e){$('#mfaState').textContent='MFA-Abfrage fehlgeschlagen: '+e.message;}
+}
+async function setupMfa(){
+ if(!confirm('Einrichtung starten? Bewahre den neuen geheimen Schluessel sicher auf.'))return;
+ try{const r=await api('/security/mfa/setup',{method:'POST'});
+  $('#mfaSecret').textContent='AUTHENTICATOR-SCHLUESSEL (nur jetzt anzeigen):\n'+r.secret+'\n\nTOTP-URI (optional fuer Import):\n'+r.otpauth_uri+'\n\n'+r.warning;
+  $('#mfaSecret').classList.remove('hidden');$('#mfaConfirmForm').classList.remove('hidden');
+  $('#mfaState').textContent='Einrichtung wartet auf Bestaetigung. Code aus Authenticator-App eingeben.';
+ }catch(e){toast(e.message,true);}
+}
+async function submitMfa(e,path){
+ e.preventDefault();const input=e.currentTarget.elements.code,code=input.value;
+ try{await api('/security/mfa/'+path,{method:'POST',body:JSON.stringify({code})});input.value='';
+  $('#mfaSecret').textContent='';$('#mfaSecret').classList.add('hidden');$('#mfaConfirmForm').classList.add('hidden');
+  toast(path==='confirm'?'MFA aktiviert – bei neuer Anmeldung frischen Code verwenden.':'MFA deaktiviert.');await refreshMfa();
+ }catch(e){toast(e.message,true);}
+}
+
+async function loadBindIPs(){
+ const select=$('#streamBindIP'),info=$('#streamBindInfo');if(!select)return;
+ const current=select.value;
+ try{
+  const r=await api('/network/listen-addresses');if(!select.isConnected)return;
+  const items=[...(r.wildcards||[]).map(x=>({value:x.address,label:x.address+' · '+x.label})),
+   ...(r.addresses||[]).map(x=>({value:x.address,label:x.address+' · '+x.interface+(x.loopback?' (Loopback)':'')}))];
+  if(!items.find(x=>x.value===current))items.push({value:current,label:current+' · nicht mehr lokal zugewiesen'});
+  select.innerHTML=items.map(x=>`<option value="${esc(x.value)}" ${x.value===current?'selected':''}>${esc(x.label)}</option>`).join('');
+  info.textContent='Konkrete Bind-IP nur auswählen, wenn sie auf dem Proxy-Server existiert. 0.0.0.0 bindet an alle IPv4-Adressen; :: an IPv6.';
+  const form=$('#modalForm');
+  for(const selector of ['[name="protocol"]','[name="listen_port"]','[name="bind_ip"]']){
+   form.querySelector(selector)?.addEventListener('change',previewBindIP);
+  }
+  previewBindIP();
+ }catch(e){info.textContent='Interface-Abfrage fehlgeschlagen: '+e.message;}
+}
+
+async function previewBindIP(){
+ if(modalKind!=='stream')return;
+ const form=$('#modalForm'), info=$('#streamBindInfo');if(!info)return;
+ try{
+  const q=new URLSearchParams({protocol:form.elements.protocol.value,
+   listen_port:form.elements.listen_port.value,bind_ip:form.elements.bind_ip.value,
+   exclude_id:editID||''});
+  const r=await api('/network/check-bind?'+q.toString());
+  if(!info.isConnected)return;
+  info.textContent=r.ok?'✔ Keine bekannten IP-/Portkonflikte. Endgueltige Pruefung beim Speichern und NGINX-Reload.':
+   '⚠ '+[...(r.conflicts||[]),...(r.warnings||[])].join(' | ')+
+   ((r.available_candidates||[]).length?' · Moegliche lokale Alternative: '+r.available_candidates.map(x=>x.address).join(', '):'');
+ }catch(e){if(info.isConnected)info.textContent='Portpruefung: '+e.message;}
+}
+
 async function actionClick(ev){
  const btn=ev.target.closest('[data-action]');if(!btn)return;const action=btn.dataset.action,id=btn.dataset.id;
  if(action==='diagnoseHost')return runDomainDiagnostics(id);
  if(action==='editHost')return openModal('host',id);
  if(action==='editStream')return openModal('stream',id);
+ if(action==='diagnoseStream')return runStreamDiagnostics(id);
  if(['deleteHost','deleteStream','deleteCert'].includes(action)){
   const type=action==='deleteHost'?'hosts':action==='deleteStream'?'streams':'certificates';
   if(!confirm('Diesen Eintrag wirklich entfernen? Die vorherige Nginx-Konfiguration bleibt bis zur erfolgreichen Aktivierung erhalten.'))return;
@@ -186,13 +256,16 @@ async function runDomainDiagnostics(id){
  const output=$('#routeDiagnostic');
  output.textContent='Pruefe Domain-Routing, internes HTTPS, Upstream und DNS ...';
  try {
-   const r=await api('/hosts/'+encodeURIComponent(id)+'/diagnostics');
+   const r=await api('/hosts/'+encodeURIComponent(id)+'/verify');
    const nginx=r.nginx||{}, upstream=r.upstream||{}, dns=r.dns||{}, tls=r.local_https||{};
    const status=(x)=>x===true?'Ja':x===false?'Nein':'Unbekannt';
    const lines=[
       `Domain: ${r.domain}`,
       `Nginx-Regel: HTTP=${status(nginx.http)}, HTTPS=${status(nginx.https)}`,
       `Lokaler HTTPS-Test (127.0.0.1:443, SNI): ${tls.state}${tls.http_status?' | HTTP '+tls.http_status:''}${tls.error?' | '+tls.error:''}`,
+      r.served_https?.reachable?`AUSGELIEFERTES TLS-ZERTIFIKAT: SAN=${(r.served_https.san||[]).join(', ')} | Domain stimmt: ${r.served_https.certificate_matches?'JA':'NEIN'} | Ablauf: ${r.served_https.expires_at||'unbekannt'} | HTTP: ${r.served_https.http_status??'keine Antwort'} | Fingerabdruck: ${r.served_https.fingerprint_sha256||'unbekannt'}`:'',
+      r.served_https?.reachable&&(!r.served_https.certificate_matches||r.served_https.expired)?'WARNUNG: Ausgeliefertes HTTPS-Zertifikat passt nicht zur Domain oder ist abgelaufen!':'',
+      r.served_https?.http_status===401?'HTTP 401 bedeutet hier: geschuetzter Dienst erreichbar (Anmeldung erforderlich).':'',
       `Zielserver: ${upstream.state} | ${upstream.code||''} | ${upstream.message||''}${upstream.http_status?' | HTTP '+upstream.http_status:''}${upstream.error?' | '+upstream.error:''}`,
       `Aktives Nginx-Ziel: ${r.applied_nginx_upstream?.proxy_pass||'nicht auslesbar'}`,
       `Nginx TLS: Pruefung=${r.applied_nginx_upstream?.tls_verification||'unbekannt'}, SNI=${r.applied_nginx_upstream?.tls_name||'(Standard: Ziel-IP/Hostname)'}, CA=${r.applied_nginx_upstream?.trusted_ca_path||'unbekannt'}`,
@@ -217,9 +290,32 @@ async function runDomainDiagnostics(id){
    output.textContent=lines.filter(x=>x!==null).join('\n');
  } catch(err){output.textContent='Diagnose fehlgeschlagen: '+err.message;}
 }
+async function runStreamDiagnostics(id){
+ nav('monitoring');const output=$('#routeDiagnostic');output.textContent='Pruefe TCP/UDP-Portregel ...';
+ try{const r=await api('/streams/'+encodeURIComponent(id)+'/diagnostics');
+  output.textContent=[`Portregel: ${r.name}`,`Protokoll: ${r.protocol.toUpperCase()} · ${r.bind_ip}:${r.listen_port}`,
+  `Ziel: ${r.target}`,`Status: ${r.state}`,`NGINX-Listener: ${r.listen_detected?'Aktiv':'NICHT nachgewiesen'}`,
+  `Backend: ${r.backend_reachable===true?'TCP verbunden':r.backend_reachable===false?'Nicht erreichbar':'Protokollspezifischer Test nicht verfuegbar'}`,
+  ...(r.port_conflicts||[]).map(x=>'KONFLIKT: '+x),...(r.notes||[])].join('\n');
+ }catch(e){output.textContent='Diagnose fehlgeschlagen: '+e.message;}
+}
+async function showDeployDiff(id){
+ const output=$('#routeDiagnostic');
+ try{const r=await api('/operations/history/'+encodeURIComponent(id)+'/diff');
+   output.textContent='KONFIGURATIONSVERGLEICH '+r.created_at+' · '+r.state+'\n\n'+(r.diff_excerpt||'Kein Diff vorhanden.');
+ }catch(e){output.textContent='Vergleich nicht verfuegbar: '+e.message;}
+}
+async function refreshOperations(){
+ try{
+  const [r,history]=await Promise.all([api('/operations/overview'),api('/operations/history')]);
+  const d=r.deployment||{}, n=r.nginx||{};
+  $('#operationsStatus').textContent=`NGINX: ${n.running?'Laeuft':'Nicht nachgewiesen'} · Prozesse: ${(n.processes||[]).length} · Letzter Aktivierungszustand: ${d.state||'?'} · Letzte erfolgreiche Uebernahme: ${d.activated_at||'unbekannt'} · ${d.message||''}`;
+  $('#deploymentHistory').innerHTML=history.length?history.slice(0,12).map(x=>`<div class="history-entry"><strong>${esc(x.state)}</strong> · ${esc(x.created_at)} · ${esc(x.duration_ms)} ms <small>${esc(x.message)}</small><small>HTTP: ${esc((x.http_sha256||'').slice(0,16))}... · STREAM: ${esc((x.stream_sha256||'').slice(0,16))}...${x.snapshot_id?' · Backup: '+esc(x.snapshot_id):''}</small><button class="mini-button" data-action="deployDiff" data-id="${esc(x.id)}">Änderungen vergleichen</button></div>`).join(''):'<p>Noch keine dokumentierten Aktivierungen.</p>';
+ }catch(e){$('#operationsStatus').textContent=e.message;}
+}
 async function refreshMonitoring(){
  try{let result=await api('/healthchecks');$('#healthRows').innerHTML=result.length?result.map(x=>`<div class="health-chip"><strong>${esc(x.name)}</strong><span class="status ${x.status==='online'?'':['offline','tls_error','error','misconfigured'].includes(x.status)?'off':'pending'}">${esc(x.type)} · ${esc(x.status)}${x.code?" · HTTP "+esc(x.code):""}</span>${x.hint?`<small>${esc(x.hint)}</small>`:""}</div>`).join(''):'<p>Noch keine aktiven Dienste eingetragen.</p>';}catch(e){$('#healthRows').textContent=e.message;}
- await refreshLogs();
+ await Promise.all([refreshLogs(),refreshOperations()]);
 }
 async function refreshLogs(){if(currentView!=='monitoring')return;try{let r=await api('/logs?kind='+encodeURIComponent($('#logType').value)+'&lines=100');$('#logOutput').textContent=r.error||r.lines.join('')||'Noch keine Logeinträge.';}catch(e){$('#logOutput').textContent=e.message;}}
 async function refreshPlugins(){try{let p=await api('/plugins');$('#pluginRows').innerHTML=p.installed.length?p.installed.map(x=>`<div class="plugin"><strong>${esc(x.name)} <span class="status pending">v${esc(x.version)}</span></strong><small>${esc(x.description)}</small></div>`).join(''):'<p>Noch keine Plugin-Manifeste installiert.</p>';}catch(e){$('#pluginRows').textContent=e.message;}}
@@ -233,10 +329,14 @@ function bind(){
  $('#modalForm').addEventListener('submit',saveModal);$('#closeModal').addEventListener('click',closeModal);$('#cancelModal').addEventListener('click',closeModal);
  $('#modalOverlay').addEventListener('click',e=>{if(e.target.id==='modalOverlay')closeModal();});
  document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
- $('#hostsRows').addEventListener('click',actionClick);$('#streamRows').addEventListener('click',actionClick);$('#certRows').addEventListener('click',actionClick);
+ $('#deploymentHistory')?.addEventListener('click',ev=>{const b=ev.target.closest('[data-action="deployDiff"]');if(b)showDeployDiff(b.dataset.id);});$('#hostsRows').addEventListener('click',actionClick);$('#streamRows').addEventListener('click',actionClick);$('#certRows').addEventListener('click',actionClick);
  $('#refreshHealth').addEventListener('click',refreshMonitoring);$('#logType').addEventListener('change',refreshLogs);
  $('#exportConfig').addEventListener('click',exportConfig);$('#exportConfig2').addEventListener('click',exportConfig);
  $('#retryDeploy').addEventListener('click',retryDeploy);
+ $('#streamSearch').addEventListener('input',renderStreams);$('#streamProtocolFilter').addEventListener('change',renderStreams);
+ $('#mfaSetup').addEventListener('click',setupMfa);
+ $('#mfaConfirmForm').addEventListener('submit',e=>submitMfa(e,'confirm'));
+ $('#mfaDisableForm').addEventListener('submit',e=>submitMfa(e,'disable'));
 }
 async function boot(){
  bind();$('#serverTime').textContent=new Date().toLocaleDateString('de-DE',{weekday:'short',day:'numeric',month:'short',year:'numeric'});

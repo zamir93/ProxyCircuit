@@ -8,12 +8,24 @@ from .security import hash_password
 
 def main():
     parser=argparse.ArgumentParser(description='ProxyCircuit Admin-CLI')
-    parser.add_argument('action', choices=['create-admin','reset-password'])
+    parser.add_argument('action', choices=['create-admin','reset-password','disable-mfa'])
     parser.add_argument('--user', default='admin')
     args=parser.parse_args()
     if not args.user or len(args.user)>80:
         print('Ungültiger Benutzername', file=sys.stderr);return 1
     init_db()
+    if args.action=='disable-mfa':
+        con=connect()
+        try:
+            cur=con.execute('DELETE FROM user_mfa WHERE username=?',(args.user,))
+            con.execute('DELETE FROM sessions WHERE username=?',(args.user,))
+            con.execute('INSERT INTO audit(username,action,description) VALUES(?,?,?)',
+                        (args.user,'mfa.local_reset','MFA lokal ueber die Administrator-CLI deaktiviert'))
+            con.commit()
+            print('MFA lokal deaktiviert; alle Sitzungen beendet:',args.user,'(bestehender MFA-Eintrag:',bool(cur.rowcount),')')
+            return 0
+        finally:
+            con.close()
     try:
         pw=getpass.getpass('Neues Administrator-Passwort (mind. 8 Zeichen): ')
         pw2=getpass.getpass('Passwort wiederholen: ')

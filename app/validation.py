@@ -48,6 +48,27 @@ def nginx_target(target: str) -> str:
     target = clean_target(target)
     return f'[{target}]' if ':' in target else target
 
+def clean_upstream_path(value: str | None) -> str:
+    """Validate a single literal directory prefix, never an Nginx directive or URL."""
+    if value is None or value == '':
+        return '/'
+    if not isinstance(value, str):
+        raise ValueError('Zielpfad muss Text sein')
+    value = value.strip()
+    if not value:
+        return '/'
+    if not value.startswith('/'):
+        value = '/' + value
+    # No URL schemes, percent-encoded bypasses, queries, fragments or Nginx escapes.
+    if len(value) > 512 or not re.fullmatch(r'[A-Za-z0-9._~/-]+', value):
+        raise ValueError('Zielpfad: nur Buchstaben, Zahlen, /, _, -, . und ~ erlaubt')
+    if '//' in value or any(segment in ('.', '..') for segment in value.split('/')):
+        raise ValueError('Zielpfad enthaelt ungueltige oder doppelte Segmente')
+    if not value.endswith('/'):
+        value += '/'
+    return value
+
+
 def cert_matches_domain(cert_domain: str, host_domain: str) -> bool:
     if cert_domain == host_domain:
         return True
@@ -60,6 +81,7 @@ class HostInput(BaseModel):
     domain: str
     upstream_scheme: str = 'http'
     upstream_host: str
+    upstream_path: str = '/'
     upstream_port: int = Field(ge=1, le=65535)
     upstream_tls_name: str | None = None
     websocket: bool = True
@@ -78,6 +100,11 @@ class HostInput(BaseModel):
     @classmethod
     def host_valid(cls, v):
         return clean_target(v)
+
+    @field_validator('upstream_path', mode='before')
+    @classmethod
+    def upstream_path_valid(cls, v):
+        return clean_upstream_path(v)
 
     @field_validator('upstream_tls_name', mode='before')
     @classmethod
@@ -120,10 +147,17 @@ class StreamInput(BaseModel):
     label: str = Field(min_length=1, max_length=70)
     protocol: str
     listen_port: int = Field(ge=1, le=65535)
+    bind_ip: str = '0.0.0.0'
     target_host: str
     target_port: int = Field(ge=1, le=65535)
     timeout_seconds: int = Field(default=300, ge=1, le=3600)
     enabled: bool = True
+
+    @field_validator('bind_ip', mode='before')
+    @classmethod
+    def bind_ip_valid(cls, v):
+        from .port_binding import normalize_bind_ip
+        return normalize_bind_ip(v)
 
     @field_validator('protocol')
     @classmethod
@@ -148,6 +182,7 @@ class StreamInput(BaseModel):
 class LoginInput(BaseModel):
     username: str = Field(min_length=1, max_length=80)
     password: str = Field(min_length=1, max_length=256)
+    otp: str | None = Field(default=None, max_length=6)
 
 class CertIssueInput(BaseModel):
     domain: str

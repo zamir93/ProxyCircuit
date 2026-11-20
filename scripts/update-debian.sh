@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# ProxyCircuit v0.2.3 Beta | Author: Mohammad Zamir Akbari | https://zamir.akbari.org
+# ProxyCircuit v0.2.6 Beta | Author: Mohammad Zamir Akbari | https://zamir.akbari.org
 # Safe in-place update for existing ProxyCircuit installations on Debian LXC.
 set -Eeuo pipefail
 umask 077
 
 if [ "$(id -u)" -ne 0 ]; then echo 'Bitte als root im ProxyCircuit-Container ausfuehren.' >&2; exit 1; fi
-if [ "$#" -ne 0 ]; then
-  echo 'Verwendung: bash scripts/update-debian.sh (keine host-spezifischen Reparaturflags)' >&2
+if [ "$#" -ne 1 ] || { [ "${1:-}" != '--check' ] && [ "${1:-}" != '--apply' ]; }; then
+  echo 'Verwendung: bash scripts/update-debian.sh --check ODER --apply' >&2
   exit 2
 fi
 SOURCE="$(cd "$(dirname "$0")/.." && pwd)"
@@ -17,8 +17,20 @@ DB='/var/lib/rpmgr/rpmgr.sqlite3'
 if [ ! -f "$TARGET/.rpmgr-installed" ] || [ ! -f "$TARGET/app/main.py" ]; then
   echo 'Keine bestehende ProxyCircuit-Installation gefunden.' >&2; exit 1
 fi
-if ! grep -Fq '0.2.3-beta' "$SOURCE/app/__init__.py"; then
+if ! grep -Fq '0.2.6-beta' "$SOURCE/app/__init__.py"; then
   echo 'Updatepaket unvollstaendig oder Versionsfehler.' >&2; exit 1
+fi
+if [ "$1" = '--check' ]; then
+  echo 'READ-ONLY CHECK. Keine Installation und keine Aenderungen.'
+  nginx -t
+  if [ -x "$TARGET/venv/bin/python" ]; then
+    PYTHONPATH="$SOURCE" "$TARGET/venv/bin/python" "$SOURCE/scripts/check-v026.py"
+  else
+    echo 'Python-Umgebung fehlt auf dem Ziel; keine Bind-IP-Pruefung moeglich.' >&2
+    exit 1
+  fi
+  echo 'Vorpruefung abgeschlossen. Installieren erst mit --apply.'
+  exit 0
 fi
 if systemctl is-active --quiet rpmgr-apply.service; then
   echo 'Der Konfigurationsarbeiter ist noch aktiv. Bitte spaeter erneut versuchen.' >&2; exit 1
@@ -29,7 +41,7 @@ if command -v rpmgr-backup >/dev/null 2>&1; then
   rpmgr-backup
 fi
 install -d -m 0700 /var/backups/rpmgr
-BACKUP="$(mktemp -d /var/backups/rpmgr/proxycircuit-0.2.3-XXXXXXXX)"
+BACKUP="$(mktemp -d /var/backups/rpmgr/proxycircuit-0.2.6-XXXXXXXX)"
 cp -a "$TARGET/app" "$BACKUP/app"
 [ ! -f "$TARGET/README.md" ] || cp -a "$TARGET/README.md" "$BACKUP/README.md"
 [ ! -f "$NGINX_CONFIG" ] || cp -a "$NGINX_CONFIG" "$BACKUP/nginx-managed.conf"
@@ -44,7 +56,10 @@ rollback() {
   trap - ERR
   echo "Update fehlgeschlagen (Exit $status). Stelle Anwendung, Datenbank und Nginx wieder her." >&2
   systemctl stop rpmgr-ui.service 2>/dev/null || true
-  cp -a "$BACKUP/app/." "$TARGET/app/" 2>/dev/null || true
+  if [ -d "$BACKUP/app" ]; then
+    rm -rf -- "$TARGET/app"
+    cp -a "$BACKUP/app" "$TARGET/app" 2>/dev/null || true
+  fi
   [ ! -f "$BACKUP/README.md" ] || cp -a "$BACKUP/README.md" "$TARGET/README.md" || true
   if [ -f "$BACKUP/rpmgr.sqlite3" ]; then
     sqlite3 "$DB" ".restore '$BACKUP/rpmgr.sqlite3'" 2>/dev/null || true
@@ -98,17 +113,35 @@ cat > /etc/systemd/system/rpmgr-apply.service.d/fallback-page.conf <<'SYSTEMD_FA
 [Service]
 ReadWritePaths=/var/www/rpmgr-fallback
 SYSTEMD_FALLBACK
+# Restricted web service needs AF_NETLINK to list local addresses.
+install -d -o root -g root -m 0755 /etc/systemd/system/rpmgr-ui.service.d
+cat > /etc/systemd/system/rpmgr-ui.service.d/10-netlink.conf <<'SYSTEMD_NETLINK'
+[Service]
+RestrictAddressFamilies=
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+SYSTEMD_NETLINK
+# NGINX's staged config check may adjust /var/lib/nginx/body ownership.
+cat > /etc/systemd/system/rpmgr-apply.service.d/20-nginx-runtime.conf <<'SYSTEMD_NGINX'
+[Service]
+ReadWritePaths=/var/lib/nginx
+SYSTEMD_NGINX
 systemctl daemon-reload
-echo '[4/5] Standardseite und Nginx-Konfiguration generieren, testen und aktivieren ...'
-systemctl start rpmgr-apply.service
-nginx -t
+echo '[4/5] Standardseite und Nginx-Konfiguration generieren, testen und aktivieren ...' 
+if systemctl start rpmgr-apply.service; then
+  echo 'NGINX-Worker hat neue Konfiguration erfolgreich angewendet.'
+else
+  echo 'WARNUNG: NGINX-Aktivierung fehlgeschlagen. Vorherige Konfiguration muss weiterhin aktiv sein.' >&2
+  echo 'Die neue Admin-Oberflaeche kann gespeicherte Bind-IP-Konflikte korrigieren.' >&2
+  nginx -t
+  systemctl is-active --quiet nginx
+fi
 systemctl start rpmgr-apply.path
 
 echo '[5/5] Admin-Webdienst starten und Version pruefen ...'
 systemctl start rpmgr-ui.service
 ok=0
 for i in 1 2 3 4 5 6 7 8 9 10; do
-  if curl --silent --show-error --fail --insecure --max-time 3 https://127.0.0.1:9443/api/version 2>/dev/null | grep -Fq '0.2.3-beta'; then
+  if curl --silent --show-error --fail --insecure --max-time 3 https://127.0.0.1:9443/api/version 2>/dev/null | grep -Fq '0.2.6-beta'; then
     ok=1
     break
   fi
@@ -118,6 +151,6 @@ done
 systemctl is-active --quiet nginx
 systemctl is-active --quiet rpmgr-ui.service
 trap - ERR
-printf '\nProxyCircuit v0.2.3-beta erfolgreich aktualisiert.\nBackup: %s\n' "$BACKUP"
+printf '\nProxyCircuit v0.2.6-beta erfolgreich aktualisiert.\nBackup: %s\n' "$BACKUP"
 printf 'Bestehende Zertifikate und Domainregeln wurden beibehalten; neue Funktionen wurden migriert.\n'
 printf 'Hinweis: Adminzugang nur per HTTPS und moeglichst nur aus LAN/VPN verwenden.\n'

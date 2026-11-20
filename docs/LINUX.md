@@ -1,4 +1,4 @@
-# Linux-/Debian-Installation – ProxyCircuit v0.2.3 Beta
+# Linux-/Debian-Installation – ProxyCircuit v0.2.6 Beta
 
 Der bestehende **native Installer ist für Debian 12/13 mit systemd** vorgesehen. Testet man ihn auf Ubuntu, Alpine oder einem Docker-Container, bricht er bewusst ab. Für diese Plattformen ist keine unverändert unterstützte Native-Installation dokumentiert; Docker siehe `DOCKER.md`.
 
@@ -23,7 +23,9 @@ Der Installer richtet Nginx, SQLite, Zertifikatsverwaltung, Konfigurationsdienst
 ```bash
 # Vorher: Snapshot oder Vollbackup anlegen, Datenbanken und Zertifikate sichern.
 cd /root/ProxyCircuit
-bash scripts/update-debian.sh
+bash scripts/update-debian.sh --check
+# Nur nach Snapshot/Backup und Freigabe:
+bash scripts/update-debian.sh --apply
 curl -ksS https://127.0.0.1:9443/api/version
 ```
 
