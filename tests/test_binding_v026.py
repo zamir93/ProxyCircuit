@@ -6,6 +6,7 @@ import os
 import socket
 import sqlite3
 import subprocess
+import re
 import tempfile
 import unittest
 from pathlib import Path
