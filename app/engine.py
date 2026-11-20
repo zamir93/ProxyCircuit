@@ -38,8 +38,7 @@ server {
 # Unknown HTTPS requests can display HTML only after a TLS handshake.
 # The local admin certificate is not generally trusted for arbitrary domains.
 server {
-    listen 443 ssl default_server;
-    http2 on;
+    listen 443 ssl http2 default_server;
     server_name _;
     ssl_certificate /etc/rpmgr/admin.crt;
     ssl_certificate_key /etc/rpmgr/admin.key;
@@ -126,7 +125,7 @@ def render_http(hosts, certificates):
         lines.append('}')
         if cert:
             lines += [f'\n# HTTPS host: {domain}', 'server {',
-                      '    listen 443 ssl;', '    http2 on;', f'    server_name {domain};',
+                      '    listen 443 ssl http2;', f'    server_name {domain};',
                       '    error_page 502 503 504 /__proxycircuit_error_page.html;',
                       FALLBACK_LOCATION,
                       f'    ssl_certificate {cert["fullchain_path"]};',
