@@ -1,6 +1,6 @@
 # ProxyCircuit
 
-**Self-hosted Reverse Proxy & Network Platform** · **v0.2.3-beta** · GitHub-Beta
+**Self-hosted Reverse Proxy & Network Platform** · **v0.2.6-beta** · GitHub-Beta
 
 **Autor und Copyright:** Mohammad Zamir Akbari · [zamir.akbari.org](https://zamir.akbari.org) · © 2026
 
